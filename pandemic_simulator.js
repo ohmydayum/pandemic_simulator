@@ -1,4 +1,4 @@
-const _VERSION = "2.1.0"
+const _VERSION = "2.2.1"
 
 /****************/
 /*****CONFIG*****/
@@ -8,6 +8,7 @@ const DEFAULT_CONFIG = {
     "V_MAX": 2,
     "PERCENTAGE_NOT_MOVING": 0.1,
     "POPULATION": 1000,
+    "PERCENTAGE_QUARANTINED": 0.5,
   },
   "PANDEMIC": {
     "DEATH_PERCENTAGE": 0.2,
@@ -16,7 +17,6 @@ const DEFAULT_CONFIG = {
     "PERCENTEAGE_BECOMING_CARRIER": 0.5,
     "PERCENTAGE_BECOMING_IMMUNE": 0.7,
     "DAYS_IMMUNE_PASS": 120,
-    "PERCENTAGE_QUARANTINED": 0.5,
   },
   "SIMULATION": {
     "DT": 1,
@@ -140,8 +140,9 @@ function run() {
 function create_controls() {
   for (var category in DEFAULT_CONFIG) {
     category_color = CONFIG_CATEGORY_COLORS[category];
+    createDiv("<b>" + category + " configuration: </b>");
     for (var key in DEFAULT_CONFIG[category]) {
-      current_input_label = createInput(key);
+      current_input_label = createInput(key+":=");
       current_input_label.size(100, 15);
       current_input_label.attribute("disabled", "disabled");
       current_input_label.attribute("style", "color:white;background-color:"+category_color);
@@ -149,15 +150,58 @@ function create_controls() {
       current_input.size(30, 15);
       inputs[key] = current_input;
     }
-    createDiv();
   }
-
+  createDiv();
   run_button = createButton('Run!');
   run_button.mousePressed(run);
 
-
   reset_button = createButton('Reset');
   reset_button.mousePressed(reset);
+  
+  reset_button = createButton('UK (Herd)');
+  herd_config = {
+    "BEHAVIOUR": {
+      "PERCENTAGE_NOT_MOVING": 0.1,
+      "V_MAX": 10,
+      "PERCENTAGE_QUARANTINED": 0.01,
+    },
+  };
+  reset_button.mousePressed(create_special_reset(herd_config));
+  
+  reset_button = createButton('China (Lockdown)');
+  lockdown_config = {
+    "BEHAVIOUR": {
+      "PERCENTAGE_NOT_MOVING": 0.9,
+      "V_MAX": 10,
+      "PERCENTAGE_QUARANTINED": 0.9,
+    },
+  };
+  reset_button.mousePressed(create_special_reset(lockdown_config));
+}
+
+function create_special_reset(config) {
+  function special_reset() {
+    for (var category in DEFAULT_CONFIG) {
+    for (var key in DEFAULT_CONFIG[category]) {
+      if(!(category in CONFIG)) {
+        CONFIG[category] = {}; 
+      }
+      CONFIG[category][key] = DEFAULT_CONFIG[category][key];
+      inputs[key].value(DEFAULT_CONFIG[category][key]);
+    }
+  }
+  for (var category in config) {
+    for (var key in config[category]) {
+      if(!(category in CONFIG)) {
+        CONFIG[category] = {}; 
+      }
+      CONFIG[category][key] = config[category][key];
+      inputs[key].value(config[category][key]);
+    }
+  }
+  run(); 
+  }
+  return special_reset;
 }
 
 function reset() {
@@ -234,7 +278,7 @@ class Organism {
     if ((other.state == "sick" || other.state == "carrier") && this.state == "healthy") {
       if (random() < CONFIG.PANDEMIC.PERCENTEAGE_BECOMING_CARRIER) {
         this.become_carrier();
-      } else if (random() < CONFIG.PANDEMIC.PERCENTAGE_QUARANTINED) {
+      } else if (random() < CONFIG.BEHAVIOUR.PERCENTAGE_QUARANTINED) {
         this.become_quarantine();
       } else {
         this.become_sick();
