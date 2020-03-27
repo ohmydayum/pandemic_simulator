@@ -1,4 +1,7 @@
-const _VERSION = "2.2.1"
+// nabaz pandemic simulator
+const _VERSION  = "2.4.0";
+const _EMAIL    = "dor.israeli+pandemic_simulator@gmail.com";
+const _CREDIT   = "@dor";
 
 /****************/
 /*****CONFIG*****/
@@ -8,6 +11,7 @@ const DEFAULT_CONFIG = {
     "V_MAX": 2,
     "PERCENTAGE_NOT_MOVING": 0.1,
     "POPULATION": 1000,
+    "MAX_INPATIENT_BEDS": 100,
     "PERCENTAGE_QUARANTINED": 0.5,
   },
   "PANDEMIC": {
@@ -42,7 +46,7 @@ const CONFIG_CATEGORY_COLORS = {
   "PANDEMIC": "#ff4444",
   "SIMULATION": "#448844",
 };
-const INFO_SIZE = 60 + 15 * Object.keys(COLORS).length;
+const INFO_SIZE = 40 + 15 * Object.keys(COLORS).length;
 
 var population;
 var ind;
@@ -73,7 +77,8 @@ function draw() {
       current_organism.get_touched_by(other_organism);
       other_organism.get_touched_by(current_organism);
     }
-    current_organism.update();
+    is_healthcare_collapsed = counters["sick"] > CONFIG.BEHAVIOUR.MAX_INPATIENT_BEDS; 
+    current_organism.update(is_healthcare_collapsed);
     fill(COLORS[current_organism.state]);
     noStroke();
     ellipse(current_organism.x, current_organism.y, CONFIG.SIMULATION.ORGANISM_SIZE, CONFIG.SIMULATION.ORGANISM_SIZE);
@@ -101,18 +106,11 @@ function run() {
 
   H = 5 + 15 * Object.keys(COLORS).length;
 
-  textSize(16);
-  fill(100);
-  noStroke();
-  text("Pandemic Simulator v" + _VERSION, 5, W_MAX + 35 + H);
-  textSize(10);
-  text("Next features: vaccines, tourists, barriers", 5, W_MAX + 50 + H);
-
   textSize(9);
   fill(100);
   noStroke();
-  text("@dor", W_MAX - 5 * 4, W_MAX + INFO_SIZE);
-
+  text(_CREDIT, W_MAX - _CREDIT.length * 4.5, W_MAX + INFO_SIZE);
+  
   fill(255, 200);
   stroke(0);
   rect(110, W_MAX + 15, W_MAX - 103, H, 5);
@@ -138,18 +136,33 @@ function run() {
 }
 
 function create_controls() {
+  title = createElement("h1", "Pandemic Simulator v" + _VERSION);
+  subtitle = createElement("h4", "Next features: vaccines, tourists, barriers");
+  credit = createA("mailto:"+_EMAIL, _CREDIT, "_blank");
+  
+  title.style("font-family", "arial");
+  title.style("margin", "0px");
+  subtitle.style("font-family", "arial");
+  subtitle.style("margin", "0px");
+  credit.style("font-family", "arial");
+  
+  createElement("hr");
+  
   for (var category in DEFAULT_CONFIG) {
     category_color = CONFIG_CATEGORY_COLORS[category];
-    createDiv("<b>" + category + " configuration: </b>");
+    createDiv("<b style='font-family:arial'>" + category + " configuration: </b>");
     for (var key in DEFAULT_CONFIG[category]) {
       current_input_label = createInput(key+":=");
       current_input_label.size(100, 15);
       current_input_label.attribute("disabled", "disabled");
-      current_input_label.attribute("style", "color:white;background-color:"+category_color);
+      current_input_label.attribute("style", "font-family:arial;color:white;background-color:"+category_color);
       current_input = createInput(str(DEFAULT_CONFIG[category][key]));
       current_input.size(30, 15);
       inputs[key] = current_input;
     }
+
+  createElement("hr");
+
   }
   createDiv();
   run_button = createButton('Run!');
@@ -241,6 +254,8 @@ function draw_graph(counters) {
     rect(x, y_top, 200 / CONFIG.SIMULATION.GRAPH_DURATION, counters[key] / CONFIG.BEHAVIOUR.POPULATION * H);
     y_top += counters[key] / CONFIG.BEHAVIOUR.POPULATION * H;
   }
+  fill("red");
+    rect(x, (1-CONFIG.BEHAVIOUR.MAX_INPATIENT_BEDS/ CONFIG.BEHAVIOUR.POPULATION) * H + W_MAX + 15, 200 / CONFIG.SIMULATION.GRAPH_DURATION, 3);
 }
 
 class Organism {
@@ -286,7 +301,7 @@ class Organism {
     }
   }
 
-  update() {
+  update(is_healthcare_collapsed) {
     if (this.state == "immune" && this.days_immune++ > CONFIG.PANDEMIC.DAYS_IMMUNE_PASS) {
       this.become_healthy()
       return;
@@ -300,7 +315,7 @@ class Organism {
       return;
     }
 
-    if (random() < (CONFIG.PANDEMIC.DEATH_PERCENTAGE * this.age / 100) ** 2) {
+    if (is_healthcare_collapsed || random() < (CONFIG.PANDEMIC.DEATH_PERCENTAGE * this.age / 100) ** 2) {
       this.become_dead();
     } else if (random() < CONFIG.PANDEMIC.PERCENTAGE_BECOMING_IMMUNE) {
       this.become_immune();
