@@ -1,31 +1,33 @@
 // nabaz pandemic simulator
-const _VERSION  = "2.4.0";
-const _EMAIL    = "dor.israeli+pandemic_simulator@gmail.com";
-const _CREDIT   = "@dor";
+const _VERSION = "2.5.1";
+const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
+const _CREDIT = "@dor";
 
 /****************/
 /*****CONFIG*****/
-/****************/
+/**********  ******/
 const DEFAULT_CONFIG = {
   "BEHAVIOUR": {
-    "V_MAX": 2,
-    "PERCENTAGE_NOT_MOVING": 0.1,
-    "POPULATION": 1000,
-    "MAX_INPATIENT_BEDS": 100,
+    "V_MAX": 5,
+    "MAX_INPATIENT_BEDS": 300,
     "PERCENTAGE_QUARANTINED": 0.5,
+  },
+  "POPULATION": {
+    "PERCENTAGE_NOT_MOVING": 0.1,
+    "POPULATION": 3000,
+    "PERCENTAGE_INITIAL_SICKNESS": 0.01,
   },
   "PANDEMIC": {
     "DEATH_PERCENTAGE": 0.2,
-    "DAYS_OF_SICKNESS": 30,
-    "PERCENTAGE_INITIAL_SICKNESS": 0.01,
+    "DAYS_OF_SICKNESS": 60,
     "PERCENTEAGE_BECOMING_CARRIER": 0.5,
     "PERCENTAGE_BECOMING_IMMUNE": 0.7,
     "DAYS_IMMUNE_PASS": 120,
   },
   "SIMULATION": {
     "DT": 1,
-    "ORGANISM_SIZE": 7,
-    "GRAPH_DURATION": 1000,
+    "ORGANISM_SIZE": 5,
+    "GRAPH_DURATION": 500,
     "WINDOW_SIZE": 500,
   }
 };
@@ -43,6 +45,7 @@ const COLORS = {
 
 const CONFIG_CATEGORY_COLORS = {
   "BEHAVIOUR": "#4444ff",
+  "POPULATION": "#772277",
   "PANDEMIC": "#ff4444",
   "SIMULATION": "#448844",
 };
@@ -69,22 +72,22 @@ function draw() {
     counters[key] = 0;
   }
   var tree = new kdTree(population, Organism.distance, ["x", "y"]);
-  for (i = 0; i < CONFIG.BEHAVIOUR.POPULATION; i++) {
+  for (i = 0; i < CONFIG.POPULATION.POPULATION; i++) {
     current_organism = population[i];
     neighbours = tree.nearest(current_organism, 20, CONFIG.SIMULATION.ORGANISM_SIZE);
     for (j = 0; j < neighbours.length; j++) {
       other_organism = neighbours[j][0];
-      current_organism.get_touched_by(other_organism);
-      other_organism.get_touched_by(current_organism);
+      is_infected_by = other_organism.get_touched_by(current_organism);
     }
-    is_healthcare_collapsed = counters["sick"] > CONFIG.BEHAVIOUR.MAX_INPATIENT_BEDS; 
-    current_organism.update(is_healthcare_collapsed);
+    is_healthcare_collapsed = counters["sick"] > CONFIG.BEHAVIOUR.MAX_INPATIENT_BEDS;
+    current_organism.update(is_healthcare_collapsed, CONFIG.SIMULATION.DT);
     fill(COLORS[current_organism.state]);
     noStroke();
     ellipse(current_organism.x, current_organism.y, CONFIG.SIMULATION.ORGANISM_SIZE, CONFIG.SIMULATION.ORGANISM_SIZE);
     current_organism.move(CONFIG.SIMULATION.DT);
     counters[current_organism.state] += 1;
   }
+
   draw_counters(counters);
 
   draw_graph(counters);
@@ -110,27 +113,21 @@ function run() {
   fill(100);
   noStroke();
   text(_CREDIT, W_MAX - _CREDIT.length * 4.5, W_MAX + INFO_SIZE);
-  
   fill(255, 200);
   stroke(0);
   rect(110, W_MAX + 15, W_MAX - 103, H, 5);
 
   population = [];
-  for (i = 0; i < CONFIG.BEHAVIOUR.POPULATION; i++) {
+  for (i = 0; i < CONFIG.POPULATION.POPULATION; i++) {
     age = random(0, 100);
     x = random(W_MIN, W_MAX);
     y = random(W_MIN, W_MAX);
-    vx = random(-CONFIG.BEHAVIOUR.V_MAX, CONFIG.BEHAVIOUR.V_MAX);
-    vy = random(-CONFIG.BEHAVIOUR.V_MAX, CONFIG.BEHAVIOUR.V_MAX);
-    if (random() < CONFIG.BEHAVIOUR.PERCENTAGE_NOT_MOVING) {
-      vx = 0;
-      vy = 0;
-    }
+    is_not_moving = random() < CONFIG.POPULATION.PERCENTAGE_NOT_MOVING;
     initial_state = "healthy";
-    if (random() < CONFIG.PANDEMIC.PERCENTAGE_INITIAL_SICKNESS) {
+    if (random() < CONFIG.POPULATION.PERCENTAGE_INITIAL_SICKNESS) {
       initial_state = "sick";
     }
-    current_organism = new Organism(age, x, y, vx, vy, initial_state);
+    current_organism = new Organism(age, x, y, is_not_moving, initial_state);
     population.push(current_organism);
   }
 }
@@ -138,81 +135,82 @@ function run() {
 function create_controls() {
   title = createElement("h1", "Pandemic Simulator v" + _VERSION);
   subtitle = createElement("h4", "Next features: vaccines, tourists, barriers");
-  credit = createA("mailto:"+_EMAIL, _CREDIT, "_blank");
-  
+  credit = createA("mailto:" + _EMAIL, _CREDIT, "_blank");
+
   title.style("font-family", "arial");
   title.style("margin", "0px");
   subtitle.style("font-family", "arial");
   subtitle.style("margin", "0px");
   credit.style("font-family", "arial");
-  
+
   createElement("hr");
-  
   for (var category in DEFAULT_CONFIG) {
     category_color = CONFIG_CATEGORY_COLORS[category];
     createDiv("<b style='font-family:arial'>" + category + " configuration: </b>");
     for (var key in DEFAULT_CONFIG[category]) {
-      current_input_label = createInput(key+":=");
+      current_input_label = createElement("span", key + "=");
       current_input_label.size(100, 15);
-      current_input_label.attribute("disabled", "disabled");
-      current_input_label.attribute("style", "font-family:arial;color:white;background-color:"+category_color);
+      current_input_label.attribute("style", "font-family:arial;color:white;background-color:" + category_color);
       current_input = createInput(str(DEFAULT_CONFIG[category][key]));
-      current_input.size(30, 15);
+      // current_input.size(30, 15);
+      current_input.attribute("style", "margin-right:1%;width:2%");
       inputs[key] = current_input;
+      // createElement("br","");
     }
 
-  createElement("hr");
+    createElement("hr");
 
   }
   createDiv();
-  run_button = createButton('Run!');
+  act_button = createButton('Apply behaviour');
+  act_button.mousePressed(act);
+
+  run_button = createButton('Restart \\w config');
   run_button.mousePressed(run);
 
   reset_button = createButton('Reset');
   reset_button.mousePressed(reset);
-  
-  reset_button = createButton('UK (Herd)');
+
+  herd_button = createButton('UK (Herd)');
   herd_config = {
     "BEHAVIOUR": {
-      "PERCENTAGE_NOT_MOVING": 0.1,
-      "V_MAX": 10,
+      "V_MAX": 7,
       "PERCENTAGE_QUARANTINED": 0.01,
     },
   };
-  reset_button.mousePressed(create_special_reset(herd_config));
-  
-  reset_button = createButton('China (Lockdown)');
+  herd_button.mousePressed(create_special_reset(herd_config));
+
+  lockdown_button = createButton('China (Lockdown)');
   lockdown_config = {
     "BEHAVIOUR": {
-      "PERCENTAGE_NOT_MOVING": 0.9,
-      "V_MAX": 10,
+      "V_MAX": 4,
       "PERCENTAGE_QUARANTINED": 0.9,
     },
   };
-  reset_button.mousePressed(create_special_reset(lockdown_config));
+  lockdown_button.mousePressed(create_special_reset(lockdown_config));
 }
 
 function create_special_reset(config) {
   function special_reset() {
     for (var category in DEFAULT_CONFIG) {
-    for (var key in DEFAULT_CONFIG[category]) {
-      if(!(category in CONFIG)) {
-        CONFIG[category] = {}; 
+      for (var key in DEFAULT_CONFIG[category]) {
+        if (!(category in CONFIG)) {
+          CONFIG[category] = {};
+        }
+        CONFIG[category][key] = DEFAULT_CONFIG[category][key];
+        inputs[key].value(DEFAULT_CONFIG[category][key]);
       }
-      CONFIG[category][key] = DEFAULT_CONFIG[category][key];
-      inputs[key].value(DEFAULT_CONFIG[category][key]);
     }
-  }
-  for (var category in config) {
-    for (var key in config[category]) {
-      if(!(category in CONFIG)) {
-        CONFIG[category] = {}; 
+    for (var category in config) {
+      for (var key in config[category]) {
+        if (!(category in CONFIG)) {
+          CONFIG[category] = {};
+        }
+        CONFIG[category][key] = config[category][key];
+        inputs[key].value(config[category][key]);
       }
-      CONFIG[category][key] = config[category][key];
-      inputs[key].value(config[category][key]);
     }
-  }
-  run(); 
+    run();
   }
   return special_reset;
 }
@@ -220,8 +218,8 @@ function create_special_reset(config) {
 function reset() {
   for (var category in DEFAULT_CONFIG) {
     for (var key in DEFAULT_CONFIG[category]) {
-      if(!(category in CONFIG)) {
-        CONFIG[category] = {}; 
+      if (!(category in CONFIG)) {
+        CONFIG[category] = {};
       }
       CONFIG[category][key] = DEFAULT_CONFIG[category][key];
       inputs[key].value(DEFAULT_CONFIG[category][key]);
@@ -230,7 +228,25 @@ function reset() {
   run();
 }
 
+function act() {
+  for (var category in DEFAULT_CONFIG) {
+    if (category != "BEHAVIOUR") {
+      continue;
+    }
+    for (var key in DEFAULT_CONFIG[category]) {
+      if (!(category in CONFIG)) {
+        CONFIG[category] = {};
+      }
+      CONFIG[category][key] = inputs[key].value();
+    }
+  }
+  
+  draw_act();
+}
+
+
 function draw_counters(counters) {
+
   fill(255, 200);
   stroke(0);
   rect(5, W_MAX + 15, 100, 5 + 15 * Object.keys(COLORS).length, 5);
@@ -251,40 +267,47 @@ function draw_graph(counters) {
   y_top = W_MAX + 15;
   for (key in counters) {
     fill(COLORS[key]);
-    rect(x, y_top, 200 / CONFIG.SIMULATION.GRAPH_DURATION, counters[key] / CONFIG.BEHAVIOUR.POPULATION * H);
-    y_top += counters[key] / CONFIG.BEHAVIOUR.POPULATION * H;
+    rect(x, y_top, 200 / CONFIG.SIMULATION.GRAPH_DURATION, counters[key] / CONFIG.POPULATION.POPULATION * H);
+    y_top += counters[key] / CONFIG.POPULATION.POPULATION * H;
   }
-  fill("red");
-    rect(x, (1-CONFIG.BEHAVIOUR.MAX_INPATIENT_BEDS/ CONFIG.BEHAVIOUR.POPULATION) * H + W_MAX + 15, 200 / CONFIG.SIMULATION.GRAPH_DURATION, 3);
+  fill(0);
+  rect(x, (1 - CONFIG.BEHAVIOUR.MAX_INPATIENT_BEDS / CONFIG.POPULATION.POPULATION - counters["quarantine"] / CONFIG.POPULATION.POPULATION) * H + W_MAX + 15, 200 / CONFIG.SIMULATION.GRAPH_DURATION, 1);
+}
+
+function draw_act() {
+  noStroke();
+  ind+=2;
 }
 
 class Organism {
-  constructor(age, x, y, vx, vy, initial_state) {
+  constructor(age, x, y, is_not_moving, initial_state) {
     this.age = age;
     this.x = x;
     this.y = y;
-    this.vx = vx;
-    this.vy = vy;
+    this.is_not_moving = is_not_moving;
     this.state = initial_state;
     this.days_sick = 0;
     this.days_immune = 0;
   }
 
   move(dt) {
-    if (this.state == "quarantine") {
+    if (is_not_moving || this.state == "quarantine" || this.state == "dead") {
       return;
     }
 
-    this.x += dt * this.vx;
-    this.y += dt * this.vy;
+    let v = dt * random() * CONFIG.BEHAVIOUR.V_MAX;
+    let a = random() * 2 * Math.PI;
+    let vx = v * Math.cos(a);
+    let vy = v * Math.sin(a);
+
+    this.x += dt * vx;
+    this.y += dt * vy;
 
     if (this.x <= W_MIN || this.x >= W_MAX) {
-      this.vx *= -1;
       this.x = Math.max(W_MIN, Math.min(this.x, W_MAX));
     }
 
     if (this.y <= W_MIN || this.y >= W_MAX) {
-      this.vy *= -1;
       this.y = Math.max(W_MIN, Math.min(this.y, W_MAX));
     }
   }
@@ -298,11 +321,14 @@ class Organism {
       } else {
         this.become_sick();
       }
+      return true;
     }
+    return false;
   }
 
-  update(is_healthcare_collapsed) {
-    if (this.state == "immune" && this.days_immune++ > CONFIG.PANDEMIC.DAYS_IMMUNE_PASS) {
+  update(is_healthcare_collapsed, dt) {
+    this.days_immune += dt;
+    if (this.state == "immune" && this.days_immune > CONFIG.PANDEMIC.DAYS_IMMUNE_PASS) {
       this.become_healthy()
       return;
     }
@@ -311,11 +337,13 @@ class Organism {
       return;
     }
 
-    if (this.days_sick++ < CONFIG.PANDEMIC.DAYS_OF_SICKNESS) {
+    this.days_sick += dt;
+    if (this.days_sick < CONFIG.PANDEMIC.DAYS_OF_SICKNESS) {
       return;
     }
 
-    if (is_healthcare_collapsed || random() < (CONFIG.PANDEMIC.DEATH_PERCENTAGE * this.age / 100) ** 2) {
+    let p = (CONFIG.PANDEMIC.DEATH_PERCENTAGE * this.age / 100) ** 2;
+    if (is_healthcare_collapsed || random() < 1 - Math.pow(1 - p, dt)) {
       this.become_dead();
     } else if (random() < CONFIG.PANDEMIC.PERCENTAGE_BECOMING_IMMUNE) {
       this.become_immune();
@@ -353,6 +381,10 @@ class Organism {
     this.state = "dead";
     this.vx = 0;
     this.vy = 0;
+  }
+
+  is_dead() {
+    return this.state == "dead";
   }
 
   static distance(o1, o2) {
