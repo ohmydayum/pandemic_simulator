@@ -1,5 +1,5 @@
 // nabaz pandemic simulator
-const _VERSION = "2.7.1";
+const _VERSION = "2.7.4";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 const _CREDIT = "@dor";
 
@@ -14,7 +14,7 @@ const DEFAULT_CONFIG = {
     "HYGIENE": 5,
   },
   "SOCIETY": {
-    "HEALTHCARE_CAPACITY": 0.05,
+    "HEALTHCARE_CAPACITY": 0.001,
     "POPULATION": 2000,
     "PERCENTAGE_INITIAL_SICKNESS": 0.01,
     "SIGHT": 8,
@@ -25,9 +25,9 @@ const DEFAULT_CONFIG = {
   },
   "PANDEMIC": {
     "DEATH_PERCENTAGE": 0.2,
-    "DAYS_OF_SICKNESS": 60,
+    "DAYS_OF_SICKNESS": 30,
     "PERCENTEAGE_BECOMING_CARRIER": 0.5,
-    "PERCENTAGE_BECOMING_IMMUNE": 0.7,
+    "PERCENTAGE_BECOMING_IMMUNE": 0.8,
     "DAYS_IMMUNE_PASS": 60,
   },
   "SIMULATION": {
@@ -413,6 +413,10 @@ class Organism {
   }
 
   update(is_healthcare_collapsed, dt) {
+    if (this.state == "dead") {
+      return;
+    }
+    
     this.days_immune += dt;
     if (this.state == "immune" && this.days_immune > CONFIG.PANDEMIC.DAYS_IMMUNE_PASS) {
       this.become_healthy()
@@ -428,8 +432,12 @@ class Organism {
       return;
     }
 
-    let p = (CONFIG.PANDEMIC.DEATH_PERCENTAGE * this.age / 100) ** 2;
-    if (is_healthcare_collapsed || random() < 1 - Math.pow(1 - p, dt)) {
+    let p = CONFIG.PANDEMIC.DEATH_PERCENTAGE * (this.age / 100) ** 2;
+    if (is_healthcare_collapsed) {
+      p = CONFIG.PANDEMIC.DEATH_PERCENTAGE
+    }
+    
+    if (random() < p) {
       this.become_dead();
     } else if (random() < CONFIG.PANDEMIC.PERCENTAGE_BECOMING_IMMUNE) {
       this.become_immune();
@@ -465,8 +473,6 @@ class Organism {
 
   become_dead() {
     this.state = "dead";
-    this.vx = 0;
-    this.vy = 0;
   }
 
   is_dead() {
