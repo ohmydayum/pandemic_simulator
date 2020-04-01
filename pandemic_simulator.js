@@ -80,22 +80,49 @@ const CONFIG_CATEGORY_COLORS = {
 const INFO_SIZE = 40 + 15 * Object.keys(COLORS).length;
 
 var population;
-var ind;
+var iteration_counter = 0;
 var CONFIG = {};
 var inputs = [];
+var labels = [];
+var datasets = [];
+
 
 function setup() {
   create_controls();
-
+  
   reset();
 }
 
 function draw() {
-  if (ind%CONFIG.SIMULATION.SKIPS==0) {
-    fill(255);
-    stroke(0);
-    rect(W_MIN - CONFIG.BEHAVIOUR.HYGIENE, W_MIN - CONFIG.BEHAVIOUR.HYGIENE, W_MAX + CONFIG.BEHAVIOUR.HYGIENE, W_MAX + CONFIG.BEHAVIOUR.HYGIENE)
+  counters = update_population(population);
+
+  if (iteration_counter%CONFIG.SIMULATION.SKIPS==0) {
+    draw_population(population);
+    draw_rooms();
   }
+  
+  draw_counters(counters);
+  draw_graph(counters);
+  iteration_counter++;
+}
+
+// TODO
+function draw_rooms() {
+
+}
+
+function draw_population(population) {
+  fill(255);
+  stroke(0);
+  rect(W_MIN - CONFIG.BEHAVIOUR.HYGIENE, W_MIN - CONFIG.BEHAVIOUR.HYGIENE, W_MAX + CONFIG.BEHAVIOUR.HYGIENE, W_MAX + CONFIG.BEHAVIOUR.HYGIENE)
+  
+  for (i = 0; i < CONFIG.SOCIETY.POPULATION; i++) {
+    current_organism = population[i];
+    draw_organism(current_organism);
+  }
+}
+
+function update_population(population) {
   counters = {}
   for (key in COLORS) {
     counters[key] = 0;
@@ -103,18 +130,8 @@ function draw() {
   var tree = new kdTree(population, Organism.distance, ["x", "y"]);
   for (i = 0; i < CONFIG.SOCIETY.POPULATION; i++) {
     current_organism = population[i];
-    infection_neighbours = tree.nearest(current_organism, 20, CONFIG.BEHAVIOUR.HYGIENE);
-    for (j = 0; j < infection_neighbours.length; j++) {
-      other_organism = infection_neighbours[j][0];
-      is_infected_by = other_organism.get_touched_by(current_organism);
-    }
-    is_healthcare_collapsed = counters["sick"]/CONFIG.SOCIETY.POPULATION > CONFIG.SOCIETY.HEALTHCARE_CAPACITY;
-    current_organism.update(is_healthcare_collapsed, CONFIG.SIMULATION.RESULTION);
     
-    if (ind%CONFIG.SIMULATION.SKIPS==0) {
-      draw_organism(current_organism);
-    }
-    let sight_neighbours = tree.nearest(current_organism, 20, CONFIG.SOCIETY.SIGHT);
+    let neighbours = tree.nearest(current_organism, 20, CONFIG.BEHAVIOUR.HYGIENE);
     let f_seperation_x = 0;
     let f_seperation_y = 0;
     let f_cohesion_x = 0;
@@ -122,11 +139,13 @@ function draw() {
     let f_alignment_x = 0;
     let f_alignment_y = 0;
     let insight = 1;
-    // console.log(sight_neighbours.length)
-    for (j = 0; j < sight_neighbours.length; j++) {
-      let other_organism = sight_neighbours[j][0];
-      let distance = sight_neighbours[j][1];
-      if (current_organism == other_organism || !current_organism.can_see(other_organism, CONFIG.SOCIETY.OPENING) || other_organism.is_dead()) {
+
+    for (j = 0; j < neighbours.length; j++) {
+      let other_organism = neighbours[j][0];
+      other_organism.get_touched_by(current_organism);
+
+      let distance = neighbours[j][1];
+      if (current_organism == other_organism || !current_organism.can_see(other_organism, CONFIG.SOCIETY.SIGHT, CONFIG.SOCIETY.OPENING) || other_organism.is_dead()) {
         continue;
       }
       insight++;
@@ -147,14 +166,14 @@ function draw() {
     fx = Math.max(-CONFIG.BEHAVIOUR.MAX_FORCE, Math.min(fx, CONFIG.BEHAVIOUR.MAX_FORCE));
     let fy = f_seperation_y * CONFIG.SOCIETY.SEPERATION + f_cohesion_y * CONFIG.SOCIETY.COHESION + f_alignment_y * CONFIG.SOCIETY.ALIGNMENT;
     fy = Math.max(-CONFIG.BEHAVIOUR.MAX_FORCE, Math.min(fy, CONFIG.BEHAVIOUR.MAX_FORCE));
-
+    
+    
+    is_healthcare_collapsed = counters["sick"]/CONFIG.SOCIETY.POPULATION > CONFIG.SOCIETY.HEALTHCARE_CAPACITY;
+    current_organism.update_health(is_healthcare_collapsed, CONFIG.SIMULATION.RESULTION);
     current_organism.move(CONFIG.SIMULATION.RESULTION, fx, fy);
     counters[current_organism.state] += 1;
   }
-
-  draw_counters(counters);
-
-  draw_graph(counters);
+  return counters;
 }
 
 function draw_organism(o) {
@@ -164,7 +183,6 @@ function draw_organism(o) {
     fill(COLORS[current_organism.state]); 
   }
   noStroke();
-//   ellipse(current_organism.x, current_organism.y, CONFIG.BEHAVIOUR.HYGIENE, CONFIG.BEHAVIOUR.HYGIENE); 
   push();
   translate(o.x, o.y);
   rotate(o.get_angle() + radians(90));
@@ -179,19 +197,19 @@ function draw_organism(o) {
 function run() {
   W_MIN = CONFIG.BEHAVIOUR.HYGIENE;
   W_MAX = CONFIG.SIMULATION.WINDOW_SIZE - CONFIG.BEHAVIOUR.HYGIENE;
-
+  
   for (var category in CONFIG) {
     for (var key in CONFIG[category]) {
       CONFIG[category][key] = float(inputs[key].value());
     }
   }
-
-  ind = 0;
+  
+  iteration_counter = 0;
   createCanvas(W_MAX + CONFIG.BEHAVIOUR.HYGIENE, W_MAX + CONFIG.BEHAVIOUR.HYGIENE + INFO_SIZE);
   background(255);
-
+  
   H = 5 + 15 * Object.keys(COLORS).length;
-
+  
   textSize(9);
   fill(100);
   noStroke();
@@ -199,7 +217,7 @@ function run() {
   fill(255, 200);
   stroke(0);
   rect(110, W_MAX + 15, W_MAX - 103, H, 5);
-
+  
   population = [];
   for (i = 0; i < CONFIG.SOCIETY.POPULATION; i++) {
     age = random(0, 100);
@@ -215,19 +233,62 @@ function run() {
     current_organism = new Organism(age, x, y, vx, vy, initial_state);
     population.push(current_organism);
   }
+  
+  var ctx = document.getElementById('graph').getContext('2d');
+  ndays = 0;
+  labels = Array(ndays).fill().map((_,i)=>i);
+  datasets = [];
+  for (let i = 0; i < Object.keys(COLORS).length; i++) {
+    key = Object.keys(COLORS)[i];
+    dataset = {
+      label: 'set ' + key,
+      backgroundColor: COLORS[key],
+      data: Array.from({length: ndays}, () => Math.floor(Math.random() * 10000)),
+    };
+    datasets.push(dataset);
+  }
+  barChartData = {
+    labels: labels,
+    datasets: datasets,
+  }
+  Chart.defaults.global.elements.point.radius=0;
+  window.myBar = new Chart(ctx, {
+    type: 'line',
+    data: barChartData,
+    options: {
+      title: {
+        display: true,
+        text: 'Pandemic Simulation'
+      },
+      tooltips: {
+        mode: 'index',
+        intersect: false
+      },
+      responsive: true,
+      scales: {
+        xAxes: [{
+          stacked: true,
+        }],
+        yAxes: [{
+          stacked: true
+        }]
+      }
+    }
+  });
+
 }
 
 function create_controls() {
   title = createElement("h1", "Pandemic Simulator v" + _VERSION);
   // subtitle = createElement("h4", "Next features: vaccines, tourists, barriers");
   credit = createA("mailto:" + _EMAIL, _CREDIT, "_blank");
-
+  
   title.style("font-family", "arial");
   title.style("margin", "0px");
   // subtitle.style("font-family", "arial");
   // subtitle.style("margin", "0px");
   credit.style("font-family", "arial");
-
+  
   createElement("hr");
   for (var category in DEFAULT_CONFIG) {
     category_color = CONFIG_CATEGORY_COLORS[category];
@@ -242,26 +303,26 @@ function create_controls() {
       inputs[key] = current_input;
       // createElement("br","");
     }
-
+    
     createElement("hr");
-
+    
   }
   createDiv();
   act_button = createButton('Apply behaviour');
   act_button.mousePressed(act);
-
+  
   run_button = createButton('Restart \\w config');
   run_button.mousePressed(run);
-
+  
   reset_button = createButton('Reset');
   reset_button.mousePressed(reset);
-
+  
   herd_button = createButton('Herd (UK)');
-
+  
   herd_button.mousePressed(create_special_reset(HERD_BEHAVIOUR));
-
+  
   lockdown_button = createButton('Social Distancing (China)');
-
+  
   lockdown_button.mousePressed(create_special_reset(SOCIAL_DISTANCING_BEHAVIOUR));
 }
 
@@ -318,7 +379,7 @@ function act() {
 
 
 function draw_counters(counters) {
-
+  
   fill(255, 200);
   stroke(0);
   rect(5, W_MAX + 15, 100, 5 + 15 * Object.keys(COLORS).length, 5);
@@ -332,10 +393,9 @@ function draw_counters(counters) {
 }
 
 function draw_graph(counters) {
-  ind++;
   noStroke();
-
-  x = 110 + 200 / CONFIG.SIMULATION.GRAPH_DURATION * ind;
+  
+  x = 110 + 200 / CONFIG.SIMULATION.GRAPH_DURATION * iteration_counter;
   y_top = W_MAX + 15;
   for (key in counters) {
     fill(COLORS[key]);
@@ -344,142 +404,26 @@ function draw_graph(counters) {
   }
   fill(0);
   rect(x, (1 - CONFIG.SOCIETY.HEALTHCARE_CAPACITY - counters["quarantine"] / CONFIG.SOCIETY.POPULATION) * H + W_MAX + 15, 200 / CONFIG.SIMULATION.GRAPH_DURATION, 1);
+  
+  N = 500;
+  if (barChartData.labels) {
+    barChartData.labels.push(iteration_counter);
+    if (barChartData.labels.length==N) {
+      barChartData.labels.shift();
+    }
+    for (var index = 0; index < barChartData.datasets.length; ++index) {
+      barChartData.datasets[index].data.push(-counters[Object.keys(counters)[index]]);
+      
+      if (barChartData.datasets[index].data.length==N) {
+        barChartData.datasets[index].data.shift();
+      }
+    }
+    
+    window.myBar.update();
+  }
 }
 
 function draw_act() {
   noStroke();
-  ind+=2;
-}
-
-class Organism {
-  constructor(age, x, y, vx, vy, initial_state) {
-    this.age = age;
-    this.x = x;
-    this.y = y;
-    this.vx = vx;
-    this.vy = vy;
-    this.state = initial_state;
-    this.days_sick = 0;
-    this.days_immune = 0;
-  }
-
-  can_see(other, opening_angle) {
-    return Math.abs(this.get_angle_to(other) - this.get_angle()) < opening_angle;
-  }
-
-  move(dt, fx, fy) {
-    if (this.state == "quarantine" || this.state == "dead") {
-      return;
-    }
-
-    this.vx = Math.min(Math.max(-CONFIG.BEHAVIOUR.V_MAX, this.vx + dt * fx), CONFIG.BEHAVIOUR.V_MAX);
-    this.vy = Math.min(Math.max(-CONFIG.BEHAVIOUR.V_MAX, this.vy + dt * fy), CONFIG.BEHAVIOUR.V_MAX);
-    // this.x = (this.x + dt * this.vx + W_MAX - W_MIN) % W_MAX + W_MIN;
-    // this.y = (this.y + dt * this.vy + W_MAX - W_MIN) % W_MAX + W_MIN;
-    this.x += this.vx;
-    this.y += this.vy;
-    if (this.x <= W_MIN || this.x >= W_MAX) {
-      this.x = Math.max(W_MIN, Math.min(this.x, W_MAX));
-      this.vx *= -1;
-    }
-
-    if (this.y <= W_MIN || this.y >= W_MAX) {
-      this.y = Math.max(W_MIN, Math.min(this.y, W_MAX));
-      this.vy *= -1;
-    }
-  }
-
-  get_angle() {
-    return Math.atan2(this.vy, this.vx);
-  }
-
-
-  get_angle_to(other) {
-    return Math.atan2(other.y-this.y, other.x-this.x);
-  }
-
-  get_touched_by(other) {
-    if ((other.state == "sick" || other.state == "carrier") && this.state == "healthy") {
-      if (random() < CONFIG.PANDEMIC.PERCENTEAGE_BECOMING_CARRIER) {
-        this.become_carrier();
-      } else if (random() < CONFIG.BEHAVIOUR.PERCENTAGE_QUARANTINED) {
-        this.become_quarantine();
-      } else {
-        this.become_sick();
-      }
-      return true;
-    }
-    return false;
-  }
-
-  update(is_healthcare_collapsed, dt) {
-    if (this.state == "dead") {
-      return;
-    }
-    
-    this.days_immune += dt;
-    if (this.state == "immune" && this.days_immune > CONFIG.PANDEMIC.DAYS_IMMUNE_PASS) {
-      this.become_healthy()
-      return;
-    }
-
-    if (!(this.state == "carrier" || this.state == "quarantine" || this.state == "sick")) {
-      return;
-    }
-
-    this.days_sick += dt;
-    if (this.days_sick < CONFIG.PANDEMIC.DAYS_OF_SICKNESS) {
-      return;
-    }
-
-    let p = CONFIG.PANDEMIC.DEATH_PERCENTAGE * (this.age / 100) ** 2;
-    if (is_healthcare_collapsed) {
-      p = CONFIG.PANDEMIC.DEATH_PERCENTAGE
-    }
-    
-    if (random() < p) {
-      this.become_dead();
-    } else if (random() < CONFIG.PANDEMIC.PERCENTAGE_BECOMING_IMMUNE) {
-      this.become_immune();
-    } else {
-      this.become_healthy();
-    }
-  }
-
-  become_immune() {
-    this.state = "immune";
-    this.days_immune = 0;
-  }
-
-  become_carrier() {
-    this.days_sick = 0;
-    this.state = "carrier";
-  }
-
-  become_quarantine() {
-    this.days_sick = 0;
-    this.state = "quarantine";
-  }
-
-  become_healthy() {
-    this.days_sick = 0;
-    this.state = "healthy";
-  }
-
-  become_sick() {
-    this.state = "sick";
-    this.days_sick = 0;
-  }
-
-  become_dead() {
-    this.state = "dead";
-  }
-
-  is_dead() {
-    return this.state == "dead";
-  }
-
-  static distance(o1, o2) {
-    return ((o1.x - o2.x) ** 2 + (o1.y - o2.y) ** 2) ** 0.5;
-  }
+  iteration_counter+=2;
 }
