@@ -1,0 +1,12 @@
+configurations input[type=text] {
+    color:red
+}
+
+canvas {
+    border:thin black solid;
+    margin: 1%;
+}
+
+.panel-heading {
+    font-weight: bold;
+}

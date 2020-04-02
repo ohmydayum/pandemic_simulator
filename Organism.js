@@ -1,5 +1,5 @@
 class Organism {
-    constructor(age, x, y, vx, vy, initial_state) {
+    constructor(age, x, y, vx, vy, initial_state, society) {
         this.age = age;
         this.x = x;
         this.y = y;
@@ -8,30 +8,32 @@ class Organism {
         this.state = initial_state;
         this.days_sick = 0;
         this.days_immune = 0;
+        this.society = society;
     }
     
-    can_see(other, radius, opening_angle) {
-        return Math.abs(this.get_angle_to(other) - this.get_angle()) < opening_angle && (this.x-other.x)**2+(this.y-other.y)**2 < radius**2;
+    can_see(other) {
+        return Math.abs(this.get_angle_to(other) - this.get_angle()) < this.society.OPENNING && (this.x-other.x)**2+(this.y-other.y)**2 < this.society.SIGHT**2;
     }
     
-    move(dt, fx, fy) {
+    // TODO
+    move(dt, fx, fy, width, height) {
         if (this.state == "quarantine" || this.state == "dead") {
             return;
         }
         
-        this.vx = Math.min(Math.max(-CONFIG.BEHAVIOUR.V_MAX, this.vx + dt * fx), CONFIG.BEHAVIOUR.V_MAX);
-        this.vy = Math.min(Math.max(-CONFIG.BEHAVIOUR.V_MAX, this.vy + dt * fy), CONFIG.BEHAVIOUR.V_MAX);
+        this.vx = Math.min(Math.max(-this.society.V_MAX, this.vx + dt * fx), this.society.V_MAX);
+        this.vy = Math.min(Math.max(-this.society.V_MAX, this.vy + dt * fy), this.society.V_MAX);
         // this.x = (this.x + dt * this.vx + W_MAX - W_MIN) % W_MAX + W_MIN;
         // this.y = (this.y + dt * this.vy + W_MAX - W_MIN) % W_MAX + W_MIN;
         this.x += this.vx;
         this.y += this.vy;
-        if (this.x <= W_MIN || this.x >= W_MAX) {
-            this.x = Math.max(W_MIN, Math.min(this.x, W_MAX));
+        if (this.x <= 0 || this.x >= width) {
+            this.x = Math.max(0, Math.min(this.x, width));
             this.vx *= -1;
         }
         
-        if (this.y <= W_MIN || this.y >= W_MAX) {
-            this.y = Math.max(W_MIN, Math.min(this.y, W_MAX));
+        if (this.y <= 0 || this.y >= height) {
+            this.y = Math.max(0, Math.min(this.y, height));
             this.vy *= -1;
         }
     }
@@ -45,11 +47,11 @@ class Organism {
         return Math.atan2(other.y-this.y, other.x-this.x);
     }
     
-    get_touched_by(other) {
+    get_touched_by(other, pandemic) {
         if ((other.state == "sick" || other.state == "carrier") && this.state == "healthy") {
-            if (random() < CONFIG.PANDEMIC.PERCENTEAGE_BECOMING_CARRIER) {
+            if (random() < pandemic.PERCENTEAGE_BECOMING_CARRIER) {
                 this.become_carrier();
-            } else if (random() < CONFIG.BEHAVIOUR.PERCENTAGE_QUARANTINED) {
+            } else if (random() < this.society.PERCENTAGE_QUARANTINED) {
                 this.become_quarantine();
             } else {
                 this.become_sick();
@@ -59,13 +61,13 @@ class Organism {
         return false;
     }
     
-    update_health(is_healthcare_collapsed, dt) {
+    update_health(pandemic, is_healthcare_collapsed, dt) {
         if (this.state == "dead") {
             return;
         }
         
         this.days_immune += dt;
-        if (this.state == "immune" && this.days_immune > CONFIG.PANDEMIC.DAYS_IMMUNE_PASS) {
+        if (this.state == "immune" && this.days_immune > pandemic.DAYS_IMMUNE_PASS) {
             this.become_healthy()
             return;
         }
@@ -75,18 +77,18 @@ class Organism {
         }
         
         this.days_sick += dt;
-        if (this.days_sick < CONFIG.PANDEMIC.DAYS_OF_SICKNESS) {
+        if (this.days_sick < pandemic.DAYS_OF_SICKNESS) {
             return;
         }
         
-        let p = CONFIG.PANDEMIC.DEATH_PERCENTAGE * (this.age / 100) ** 2;
+        let p = pandemic.DEATH_PERCENTAGE * (this.age / 100) ** 2;
         if (is_healthcare_collapsed) {
-            p = CONFIG.PANDEMIC.DEATH_PERCENTAGE
+            p = pandemic.DEATH_PERCENTAGE
         }
         
         if (random() < p) {
             this.become_dead();
-        } else if (random() < CONFIG.PANDEMIC.PERCENTAGE_BECOMING_IMMUNE) {
+        } else if (random() < pandemic.PERCENTAGE_BECOMING_IMMUNE) {
             this.become_immune();
         } else {
             this.become_healthy();

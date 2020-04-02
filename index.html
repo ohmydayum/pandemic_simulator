@@ -1,20 +1,42 @@
 
-<!DOCTYPE html><html lang="en"><head>
-    <script src="https://cdn.jsdelivr.net/npm/p5@1.0.0/lib/p5.js"></script>
-    <script src="./pandemic_simulator.js"></script>
-    <script src="./kdtree.js"></script>
-    <meta charset="utf-8">
-    <style>
-html, body {
-  margin: 0;
-  padding: 0;
-}
-canvas {
-  display: block;
-}
-</style>
-   </head>
-  <body>
-  </body>
+<!DOCTYPE html><html lang="en">
+<head>
+  <link rel="shortcut icon" href="./favicon.png"/>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+      <script>window.jQuery || document.write('<script src="https://getbootstrap.com/docs/4.4/assets/js/vendor/jquery.slim.min.js"><\/script>')</script
+
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+  <link rel="stylesheet" href="./style.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.0.0/lib/p5.js"></script>
+  
+  <script src="./Society.js"></script>
+  <script src="./Pandemic.js"></script>
+  <script src="./World.js"></script>
+  <script src="./Organism.js"></script>
+  <script src="./Simulation.js"></script>
+  <script src="./Configuration.js"></script>
+  <script src="./kdtree.js"></script>
+  
+  <script src="./pandemic_simulator.js"></script>
+  <meta charset="utf-8">
+</head>
+<body>
+  <nav class="navbar navbar-inverse">
+    <div id="fluid" class="container-fluid">
+      <div id="header"        class="navbar-header"></div>
+      <div                    class="nav navbar-nav"></div>
+      <button onclick="window.location.href = 'mailto:dor.israeli+pandemic@gmail.com?subject=Cool simulator!'" class="btn btn-success navbar-btn"><span class='glyphicon glyphicon-envelope'></span> dor</button>
+    </div>
+  </nav>
+  <div id="simulation-holder"></div> 
+  <div id="buttons" class="btn-group">
+    <button type="button" class="btn-info" data-toggle="collapse" data-target="#configurations"><span class="glyphicon glyphicon-pencil"></span> Edit configuration</button>
+  </div>
+  <div id="configurations" class="panel-group collapse in" style="width:80%"></div>
+  <div id="graph"></div>
+</body>
 </html>
-    
+
