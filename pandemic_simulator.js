@@ -1,5 +1,5 @@
 // nabaz pandemic simulator
-const _VERSION = "3.1.0_dev";
+const _VERSION = "3.2.2";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 const _CREDIT = "@dor";
 
@@ -62,7 +62,7 @@ function _deepClone(obj) {
   };
   const INFO_SIZE = 40 + 15 * Object.keys(COLORS).length;
   
-  var population;
+  var population = [];
   var ind;
   var config = {};
   var inputs = [];
@@ -78,7 +78,6 @@ function _deepClone(obj) {
       s = urlParams.get("config");
       try{
         config = deserialize_config(s);
-        alert("Configuration loaded!");
       } catch {
         alert("Error parsing configuration...")
         config = _deepClone(DEFAULT_CONFIG);
@@ -90,11 +89,11 @@ function _deepClone(obj) {
   }
   
   function create_header() {
-    title = document.createElement("div");
-    title.innerText = "Pandemic Simulator v" + _VERSION;
-    title.style = "font-family:arial;margin:0px;";
-    title.classList.add("navbar-brand");
-    document.getElementById("header").appendChild(title);
+    title = document.getElementById("title");
+    title.innerText += "Pandemic Simulator v" + _VERSION;
+    // title.style = "font-family:arial;margin:0px;";
+    // title.classList.add("navbar-brand");
+    // document.getElementById("header").appendChild(title);
     
     // credit = document.createElement("a");
     // credit.href = "mailto:" + _EMAIL;
@@ -104,7 +103,7 @@ function _deepClone(obj) {
   }
   
   function draw() {
-    if (ind%config.simulation.SKIPS==0) {
+    if (ind++%config.simulation.SKIPS==0) {
       fill(255);
       rect(0, 0, config.simulation.CANVAS_WIDTH, config.simulation.CANVAS_HEIGHT);
     }
@@ -164,9 +163,90 @@ function _deepClone(obj) {
       counters[current_organism.state] += 1;
     }
     
-    draw_counters(counters);
-    
-    draw_graph(counters);
+    update_chart(line_chart, counters, line_series);
+    update_chart(stacked_chart, counters, stacked_series);
+  }
+
+  function create_chart(id, type, groups, series, title) {
+    for (let i = 0; i < Object.keys(COLORS).length; i++) {
+      series.push({			
+        type: type,
+        showInLegend: true,
+        name: Object.keys(COLORS)[i],
+        dataPoints: [],
+      });
+    }
+    // var c = document.getElementById(id).getContext("2d");
+    // console.log(type, c);
+    var chart = new CanvasJS.Chart(id, {
+      theme: "light2",
+      // zoomEnabled: true,
+      responsive: true,
+      showTooltips: true,
+      tooltips: {
+        enabled: true
+      },
+      title: {
+        text: title
+      },
+      scales: {
+        xAxes: [{
+                display: true,
+                scaleLabel: {
+                    display: true,
+                    labelString: 'Time [arbitrary units]'
+                }
+            }],
+        yAxes: [{
+                display: true,
+                ticks: {
+                    beginAtZero: true,
+                    max: population.length
+                }
+            }]
+      },
+      axisY:{
+        includeZero: true
+      }, 
+      toolTip: {
+        shared: false,
+        enabled: true,
+      },
+      legend: {
+        cursor:"pointer",
+        verticalAlign: "top",
+        fontSize: 22,
+        fontColor: "dimGrey",
+        itemclick : toggleDataSeries
+      },
+      data: series,
+      options: {
+          showLines: false // disable for all datasets,
+      },
+      // animation: false,
+    });
+    return chart;
+  }
+
+  function toggleDataSeries(e) {
+    if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
+      e.dataSeries.visible = false;
+    }
+    else {
+      e.dataSeries.visible = true;
+    }
+    chart.render();
+  }
+
+  function update_chart(chart, counters, series) {
+    for (var i = 0; i < Object.keys(counters).length; i++) {
+      series[i].legendText = Object.keys(counters)[i] + " " + Object.values(counters)[i];
+      series[i].dataPoints.push({
+        x: ind,
+        y: Object.values(counters)[i]
+      });
+    }
+    chart.render();
   }
   
   function draw_organism(o) {
@@ -193,10 +273,20 @@ function _deepClone(obj) {
     run();
   }
   
+  var line_chart;
+  var stacked_chart;
+  var line_series;
+  var stacked_series;
   function run() {
+    ind = 0;
     create_configuration_controls();
     resizeCanvas(config.simulation.CANVAS_WIDTH, config.simulation.CANVAS_HEIGHT);
-    ind = 0;
+    
+    
+    line_series = [];
+    stacked_series = []
+    stacked_chart = create_chart("stacked_chart", "stackedArea100", COLORS, stacked_series, "Stacked Segmentation VS time");
+    line_chart = create_chart("line_chart", "line", COLORS, line_series, "Groups sizes VS time");
     
     H = 5 + 15 * Object.keys(COLORS).length;
     
@@ -370,19 +460,19 @@ function _deepClone(obj) {
     buttons_div = document.getElementById("buttons");
     
     apply_changes_button = document.createElement("button");
-    apply_changes_button.innerHTML = '<span class="glyphicon glyphicon-saved"></span> Apply config changes';
+    apply_changes_button.innerHTML = '<span class="mdi mdi-check"></span> Apply config changes';
     apply_changes_button.classList.add("btn-success");
     apply_changes_button.addEventListener("click", apply_config_changes);
     buttons_div.appendChild(apply_changes_button)
     
     run_button = document.createElement("button");
-    run_button.innerHTML = '<span class="glyphicon glyphicon-retweet"></span> Restart with current input';
+    run_button.innerHTML = '<span class="mdi mdi-refresh"></span> Restart with current input';
     run_button.classList.add("btn-primary");
     run_button.addEventListener("click", restart_with_input_config);
     buttons_div.appendChild(run_button)
     
     reset_button = document.createElement("button");
-    reset_button.innerHTML = '<span class="glyphicon glyphicon-erase"></span> Reset to original';
+    reset_button.innerHTML = '<span class="mdi mdi-cancel"></span> Reset to original';
     reset_button.classList.add("btn-danger");
     reset_button.addEventListener("click", reset);
     buttons_div.appendChild(reset_button)
@@ -400,7 +490,7 @@ function _deepClone(obj) {
     buttons_div.appendChild(social_distancing_button);
     
     copy_sharable_link_button = document.createElement("button");
-    copy_sharable_link_button.innerHTML = '<span class="glyphicon glyphicon-send"></span> Copy shareable link';
+    copy_sharable_link_button.innerHTML = '<span class="mdi mdi-share"></span> Copy shareable link';
     copy_sharable_link_button.classList.add("btn-success");
     copy_sharable_link_button.setAttribute("title","Hooray!");
     copy_sharable_link_button.setAttribute("data-toggle","popover");
@@ -411,7 +501,7 @@ function _deepClone(obj) {
 
   function copy_sharable_link() {
     s = serialize_config(config);
-    u = window.location.href;
+    u = "http://corona.dor.red/"; //window.location.href
     new_url = new URL(u);
     new_url.searchParams.set("config", s);
     copyToClipboard(new_url);
