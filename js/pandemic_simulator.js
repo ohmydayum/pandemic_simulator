@@ -1,14 +1,14 @@
-const _VERSION = "3.3.1";
+const _VERSION = "3.3.2";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 
 INITIAL_SCREEN_WIDTH = $(window).width()*3/4;
 INITIAL_SCREEN_HEIGHT = $(window).width()*3/4;
-const DEFAULT_SIMULATION_CONFIG = new Simulation(RESULTION= 1, GRAPH_DURATION= 500, CANVAS_WIDTH=1500, CANVAS_HEIGHT=500, SKIPS= 1, PAUSED=1)
+const DEFAULT_SIMULATION_CONFIG = new Simulation(RESULTION= 1, GRAPH_DURATION= 500, CANVAS_WIDTH=1500, CANVAS_HEIGHT=500, SKIPS= 1, PAUSED=0)
 const PERIMITERS = [new Perimeter(0, CANVAS_WIDTH, 0, CANVAS_HEIGHT)]//, new Perimeter(400, 900, 100, 400)];
 const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=PERIMITERS);
-const DEFAULT_SOCIETY_CONFIG = new Society(V_MAX= 4, MAX_FORCE= 1, PERCENTAGE_QUARANTINED= 0.5, HYGIENE= 5, POPULATION= 1000, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.07, ALIGNMENT= 0.1, OPENING= Math.PI/4, PERIMITER=PERIMITERS[0]);
-const CRAZY_SOCIETY_CONFIG = new Society(V_MAX= 7, MAX_FORCE= 2, PERCENTAGE_QUARANTINED= 0.1, HYGIENE= 20, POPULATION= 100, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.07, ALIGNMENT= 0.1, OPENING= Math.PI/4, PERIMITER=PERIMITERS[0]);
+const DEFAULT_SOCIETY_CONFIG = new Society(V_MAX= 4, MAX_FORCE= 1, PERCENTAGE_QUARANTINED= 0.5, HYGIENE= 5, COUNT= 1000, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.07, ALIGNMENT= 0.1, OPENING= Math.PI/4, PERIMITER=PERIMITERS[0]);
+const CRAZY_SOCIETY_CONFIG = new Society(V_MAX= 7, MAX_FORCE= 2, PERCENTAGE_QUARANTINED= 0.1, HYGIENE= 20, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.07, ALIGNMENT= 0.1, OPENING= Math.PI/4, PERIMITER=PERIMITERS[0]);
 const DEFAULT_PANDEMIC_CONFIG = new Pandemic(DEATH_PERCENTAGE= 0.2, DAYS_OF_SICKNESS= 30, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 60)
 const DEFAULT_CONFIG = new Configuration(_VERSION, [DEFAULT_SOCIETY_CONFIG, CRAZY_SOCIETY_CONFIG, ], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
  
@@ -182,7 +182,9 @@ function draw() {
     ind++;
   }
   
-  update_chart(line_chart, counters, line_series);
+  let line_counters = _deepClone(counters);
+  delete line_counters.healthy;
+  update_chart(line_chart, line_counters, line_series);
   counters_percents = {};
   for (let i = 0; i < Object.keys(counters).length; i++) {
     counters_percents[Object.keys(counters)[i]] = (Object.values(counters)[i]/Object.keys(population).length*100).toFixed(2);
@@ -192,63 +194,45 @@ function draw() {
 
 function create_chart(id, type, groups, series, title) {
   for (let i = 0; i < Object.keys(COLORS).length; i++) {
+    if (Object.keys(COLORS)[i]=="healthy"&&type=="line") {continue};
     series.push({			
       type: type,
       showInLegend: true,
       name: Object.keys(COLORS)[i],
       dataPoints: [],
+      color: Object.values(COLORS)[i],
+      pointStyle: 'line'
     });
   }
 
   var chart = new CanvasJS.Chart(id, {
     theme: "light2",
+    animationEnabled: true,
     title: {
       text: title
     },
-    scales: {
-      xAxes: [{
-        display: true,
-        scaleLabel: {
-          display: true,
-          labelString: 'Time [arbitrary units]'
-        }
-      }],
-      yAxes: [{
-        display: true,
-        ticks: {
-          beginAtZero: true,
-          max: population.length
-        }
-      }]
+    toolTip: {
+      shared: true
     },
     legend: {
       cursor:"pointer",
       verticalAlign: "top",
       fontSize: 14,
       fontColor: "dimGrey",
-      itemclick : toggleDataSeries
+      usePointStyle: true,
     },
     data: series,
   });
   return chart;
 }
 
-function toggleDataSeries(e) {
-  if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
-    e.dataSeries.visible = false;
-  }
-  else {
-    e.dataSeries.visible = true;
-  }
-  chart.render();
-}
 
-function update_chart(chart, counters, series) {
-  for (var i = 0; i < Object.keys(counters).length; i++) {
-    series[i].legendText = Object.keys(counters)[i] + " " + Object.values(counters)[i];
+function update_chart(chart, current_counters, series) {
+  for (var i = 0; i < Object.keys(current_counters).length; i++) {
+    series[i].legendText = Object.keys(current_counters)[i] + " " + Object.values(current_counters)[i];
     series[i].dataPoints.push({
       x: ind,
-      y: float(Object.values(counters)[i])
+      y: float(Object.values(current_counters)[i])
     });
   }
   chart.render();
@@ -290,8 +274,8 @@ function run() {
   
   line_series = [];
   stacked_series = []
-  stacked_chart = create_chart("stacked_chart", "stackedArea100", COLORS, stacked_series, "Stacked Segmentation VS time");
-  line_chart = create_chart("line_chart", "line", COLORS, line_series, "Groups sizes VS time");
+  stacked_chart = create_chart("stacked_chart", "stackedArea100", COLORS, stacked_series, "Stacked Population Segmentation");
+  line_chart = create_chart("line_chart", "line", COLORS, line_series, "Affected Groups Sizes");
   
   population = create_population(config.societies);
 }
@@ -299,7 +283,7 @@ function run() {
 function create_population(societies) {
   population = [];
   Object.values(societies).forEach(society => {
-    for (i = 0; i < society.POPULATION; i++) {
+    for (i = 0; i < society.COUNT; i++) {
       age = Math.ceil(random(0, 100));
       x = random(society.PERIMETER.x_left, society.PERIMETER.x_right);
       y = random(society.PERIMETER.y_top, society.PERIMETER.y_bottom);
@@ -463,10 +447,12 @@ function create_configuration_controls() {
 
 function play_simulation() {
   config.simulation.PAUSED = 0;
+  inputs.simulation.PAUSED.value = 0;
 }
 
 function pause_simulation() {
   config.simulation.PAUSED = 1;
+  inputs.simulation.PAUSED.value = 1;
 }
 
 function create_buttons() {
