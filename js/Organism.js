@@ -16,25 +16,43 @@ class Organism {
     }
     
     // TODO
-    move(dt, fx, fy, width, height) {
+    move(dt, fx, fy, perimeters) {
         if (this.state == "quarantine" || this.state == "dead") {
             return;
         }
         
         this.vx = Math.min(Math.max(-this.society.V_MAX, this.vx + dt * fx), this.society.V_MAX);
         this.vy = Math.min(Math.max(-this.society.V_MAX, this.vy + dt * fy), this.society.V_MAX);
-        // this.x = (this.x + dt * this.vx + W_MAX - W_MIN) % W_MAX + W_MIN;
-        // this.y = (this.y + dt * this.vy + W_MAX - W_MIN) % W_MAX + W_MIN;
-        this.x += this.vx;
-        this.y += this.vy;
-        if (this.x <= 0 || this.x >= width) {
-            this.x = Math.max(0, Math.min(this.x, width));
-            this.vx *= -1;
-        }
         
-        if (this.y <= 0 || this.y >= height) {
-            this.y = Math.max(0, Math.min(this.y, height));
-            this.vy *= -1;
+        
+        let x_old = this.x
+        this.x += dt * this.vx;
+        let y_old = this.y;
+        this.y += dt * this.vy;
+        
+        for (const key in Object.keys(perimeters)) {
+            const p = perimeters[key];
+            let passed_x_border = ((x_old <= p.x_left && p.x_left <= this.x) || (x_old <= p.x_right && p.x_right <= this.x) || (x_old >= p.x_left && p.x_left >= this.x) || (x_old >= p.x_right && p.x_right >= this.x));
+            let passed_y_border = ((y_old <= p.y_top && p.y_top <= this.y) || (y_old <= p.y_bottom && p.y_bottom <= this.y) || (y_old >= p.y_top && p.y_top >= this.y) || (y_old >= p.y_bottom && p.y_bottom >= this.y));
+            if (passed_x_border && (p.y_top <= this.y && this.y <= p.y_bottom)) {
+                this.vx *= -1;
+                this.x = x_old;
+                return;
+            }
+            
+            if (passed_y_border && (p.x_left <= this.x && this.x <= p.x_right)) {
+                this.vy *= -1;
+                this.y = y_old;
+                return;
+            }
+
+            if (passed_x_border && passed_y_border) {
+                this.vy *= -1;
+                this.y = y_old;
+                this.vx *= -1;
+                this.x = x_old;
+                return;
+            }
         }
     }
     

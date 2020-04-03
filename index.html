@@ -14,15 +14,16 @@
   
   <script src="https://cdn.jsdelivr.net/npm/p5@1.0.0/lib/p5.js"></script>
   
-  <script src="./Society.js"></script>
-  <script src="./Pandemic.js"></script>
-  <script src="./World.js"></script>
-  <script src="./Organism.js"></script>
-  <script src="./Simulation.js"></script>
-  <script src="./Configuration.js"></script>
-  <script src="./kdtree.js"></script>
+  <script src="./js/Society.js"></script>
+  <script src="./js/Pandemic.js"></script>
+  <script src="./js/Perimeter.js"></script>
+  <script src="./js/World.js"></script>
+  <script src="./js/Organism.js"></script>
+  <script src="./js/Simulation.js"></script>
+  <script src="./js/Configuration.js"></script>
+  <script src="./js/kdtree.js"></script>
   
-  <script src="./pandemic_simulator.js"></script>
+  <script src="./js/pandemic_simulator.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 </head>
@@ -45,18 +46,6 @@
     
   </nav>
   <div id="simulation-holder"></div> 
-  <div id="graph">
-    <table>
-      <tr>
-        <td>
-          <div id="line_chart">No canvas support, so no line chart for you...</div>
-        </td>
-        <td>
-          <div id="stacked_chart">No canvas support, so no stacked chart for you...</div>
-        </td>
-      </tr>
-    </table>
-  </div>
   <div id="buttons" class="btn-group">
     <button type="button" class="btn-info" data-toggle="collapse" data-target="#configurations"><span class="mdi mdi-mode-edit"></span> Edit configuration</button>
     <div class="modal fade" id="modal_link_copied">
@@ -128,6 +117,18 @@
         </div>
       </div>
     </div>
+  </div>
+  <div id="graph">
+    <table>
+      <tr>
+        <td>
+          <div id="line_chart">No canvas support, so no line chart for you...</div>
+        </td>
+        <td>
+          <div id="stacked_chart">No canvas support, so no stacked chart for you...</div>
+        </td>
+      </tr>
+    </table>
   </div>
   <div id="configurations" class="panel-group collapse in" style="width:80%"></div>
 </body>

@@ -1,0 +1,6 @@
+class World {
+    constructor(HEALTHCARE_CAPACITY, PERIMETERS) {
+        this.HEALTHCARE_CAPACITY = HEALTHCARE_CAPACITY;
+        this.PERIMETERS = PERIMETERS;
+    }
+}

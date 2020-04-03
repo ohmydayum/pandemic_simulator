@@ -1,13 +1,17 @@
-const _VERSION = "3.2.5";
+const _VERSION = "3.3.1";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
-const DEFAULT_SOCIETY_CONFIG = new Society(V_MAX= 4, MAX_FORCE= 1, PERCENTAGE_QUARANTINED= 0.5, HYGIENE= 5, POPULATION= 2000, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.07, ALIGNMENT= 0.1, OPENING= Math.PI/4);
-const CRAZY_SOCIETY_CONFIG = new Society(V_MAX= 7, MAX_FORCE= 2, PERCENTAGE_QUARANTINED= 0.5, HYGIENE= 20, POPULATION= 10, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.07, ALIGNMENT= 0.1, OPENING= Math.PI/4);
-const DEFAULT_PANDEMIC_CONFIG = new Pandemic(DEATH_PERCENTAGE= 0.2, DAYS_OF_SICKNESS= 30, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 60)
-const DEFAULT_SIMULATION_CONFIG = new Simulation(RESULTION= 1, GRAPH_DURATION= 500, CANVAS_WIDTH= $(window).width()*3/4, CANVAS_HEIGHT= $(window).height()*3/4, SKIPS= 1)
-const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.001)
-const DEFAULT_CONFIG = new Configuration(_VERSION, [DEFAULT_SOCIETY_CONFIG, CRAZY_SOCIETY_CONFIG, ], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
 
+INITIAL_SCREEN_WIDTH = $(window).width()*3/4;
+INITIAL_SCREEN_HEIGHT = $(window).width()*3/4;
+const DEFAULT_SIMULATION_CONFIG = new Simulation(RESULTION= 1, GRAPH_DURATION= 500, CANVAS_WIDTH=1500, CANVAS_HEIGHT=500, SKIPS= 1, PAUSED=1)
+const PERIMITERS = [new Perimeter(0, CANVAS_WIDTH, 0, CANVAS_HEIGHT)]//, new Perimeter(400, 900, 100, 400)];
+const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=PERIMITERS);
+const DEFAULT_SOCIETY_CONFIG = new Society(V_MAX= 4, MAX_FORCE= 1, PERCENTAGE_QUARANTINED= 0.5, HYGIENE= 5, POPULATION= 1000, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.07, ALIGNMENT= 0.1, OPENING= Math.PI/4, PERIMITER=PERIMITERS[0]);
+const CRAZY_SOCIETY_CONFIG = new Society(V_MAX= 7, MAX_FORCE= 2, PERCENTAGE_QUARANTINED= 0.1, HYGIENE= 20, POPULATION= 100, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.07, ALIGNMENT= 0.1, OPENING= Math.PI/4, PERIMITER=PERIMITERS[0]);
+const DEFAULT_PANDEMIC_CONFIG = new Pandemic(DEATH_PERCENTAGE= 0.2, DAYS_OF_SICKNESS= 30, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 60)
+const DEFAULT_CONFIG = new Configuration(_VERSION, [DEFAULT_SOCIETY_CONFIG, CRAZY_SOCIETY_CONFIG, ], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
+ 
 function _deepClone(obj) {
   if (obj === null || typeof obj !== "object")
   return obj
@@ -99,10 +103,28 @@ function create_header() {
 }
 
 function draw() {
-  if (ind++%config.simulation.SKIPS==0) {
+  if (ind%config.simulation.SKIPS==0) {
     fill(255);
     rect(0, 0, config.simulation.CANVAS_WIDTH, config.simulation.CANVAS_HEIGHT);
+    for (const key in config.world.PERIMETERS) {
+      p = config.world.PERIMETERS[key];
+      noFill();
+      stroke(0);
+      strokeWeight(2);
+      rect(p.x_left, p.y_top, p.x_right-p.x_left, p.y_bottom-p.y_top)
+    }
   }
+  
+  if (config.simulation.PAUSED==1) {
+    fill(180);
+    rect(0, 0, config.simulation.CANVAS_WIDTH, config.simulation.CANVAS_HEIGHT);
+    for (i = 0; i < population.length ; i++) {
+      current_organism = population[i];
+      draw_organism(current_organism);
+    }
+    return;
+  };
+  
   counters = {}
   for (key in COLORS) {
     counters[key] = 0;
@@ -155,15 +177,15 @@ function draw() {
     let fy = f_seperation_y * current_organism.society.SEPERATION + f_cohesion_y * current_organism.society.COHESION + f_alignment_y * current_organism.society.ALIGNMENT;
     fy = Math.max(-current_organism.society.MAX_FORCE, Math.min(fy, current_organism.society.MAX_FORCE));
     
-    current_organism.move(config.simulation.RESULTION, fx, fy, config.simulation.CANVAS_WIDTH, config.simulation.CANVAS_HEIGHT);
+    current_organism.move(config.simulation.RESULTION, fx, fy, config.world.PERIMETERS);
     counters[current_organism.state] += 1;
+    ind++;
   }
   
   update_chart(line_chart, counters, line_series);
   counters_percents = {};
   for (let i = 0; i < Object.keys(counters).length; i++) {
     counters_percents[Object.keys(counters)[i]] = (Object.values(counters)[i]/Object.keys(population).length*100).toFixed(2);
-    // console.log(Object.keys(counters)[i], counters_percents[Object.keys(counters)[i]])
   }
   update_chart(stacked_chart, counters_percents, stacked_series);
 }
@@ -177,8 +199,7 @@ function create_chart(id, type, groups, series, title) {
       dataPoints: [],
     });
   }
-  // var c = document.getElementById(id).getContext("2d");
-  // console.log(type, c);
+
   var chart = new CanvasJS.Chart(id, {
     theme: "light2",
     title: {
@@ -234,12 +255,12 @@ function update_chart(chart, counters, series) {
 }
 
 function draw_organism(o) {
+  noStroke();
   if (o.is_dead()) {
     fill(100, 100, 100, 50);
   } else {
     fill(COLORS[current_organism.state]); 
   }
-  noStroke();
   //   ellipse(current_organism.x, current_organism.y, config.society.HYGIENE, config.society.HYGIENE); 
   push();
   translate(o.x, o.y);
@@ -272,14 +293,16 @@ function run() {
   stacked_chart = create_chart("stacked_chart", "stackedArea100", COLORS, stacked_series, "Stacked Segmentation VS time");
   line_chart = create_chart("line_chart", "line", COLORS, line_series, "Groups sizes VS time");
   
-  H = 5 + 15 * Object.keys(COLORS).length;
-  
+  population = create_population(config.societies);
+}
+
+function create_population(societies) {
   population = [];
-  Object.values(config.societies).forEach(society => {
+  Object.values(societies).forEach(society => {
     for (i = 0; i < society.POPULATION; i++) {
       age = Math.ceil(random(0, 100));
-      x = random(config.simulation.CANVAS_WIDTH);
-      y = random(config.simulation.CANVAS_HEIGHT);
+      x = random(society.PERIMETER.x_left, society.PERIMETER.x_right);
+      y = random(society.PERIMETER.y_top, society.PERIMETER.y_bottom);
       angle = random(2*Math.PI);
       vx = random() * society.V_MAX * Math.cos(angle);
       vy = random() * society.V_MAX * Math.sin(angle);
@@ -291,6 +314,7 @@ function run() {
       population.push(current_organism);
     }
   });
+  return population;
 }
 
 function create_configuration_controls() {  
@@ -314,6 +338,7 @@ function create_configuration_controls() {
     inputs["society"][society_index] = {};
     society = config.societies[society_index];
     for (const key in society) {
+      if (key=="PERIMETER") {continue};
       input_id = "society_"+society_index+"_"+key+"_input";
       current_input_label = document.createElement("label");
       current_input_label.htmlFor = input_id;
@@ -413,6 +438,10 @@ function create_configuration_controls() {
   world_div.appendChild(body);
   inputs["world"] = {};
   Object.keys(config.world).forEach(key => {
+    if (key=="PERIMETERS") {
+
+      return
+    };
     current_input_label = document.createElement("label");
     current_input_label.innerText = key;
     // current_input_label.width = 100;
@@ -432,6 +461,14 @@ function create_configuration_controls() {
   document.getElementById('configurations').appendChild(world_div);
 }
 
+function play_simulation() {
+  config.simulation.PAUSED = 0;
+}
+
+function pause_simulation() {
+  config.simulation.PAUSED = 1;
+}
+
 function create_buttons() {
   buttons_div = document.getElementById("buttons");
   
@@ -446,6 +483,18 @@ function create_buttons() {
   run_button.classList.add("btn-primary");
   run_button.addEventListener("click", restart_with_input_config);
   buttons_div.appendChild(run_button)
+  
+  pause_button = document.createElement("button");
+  pause_button.innerHTML = '<span class="mdi mdi-pause"></span> Pause';
+  pause_button.classList.add("btn-warning");
+  pause_button.addEventListener("click", pause_simulation);
+  buttons_div.appendChild(pause_button) 
+
+  play_button = document.createElement("button");
+  play_button.innerHTML = '<span class="mdi mdi-play-circle-outline"></span> Play';
+  play_button.classList.add("btn-success");
+  play_button.addEventListener("click", play_simulation);
+  buttons_div.appendChild(play_button)
   
   reset_button = document.createElement("button");
   reset_button.innerHTML = '<span class="mdi mdi-cancel"></span> Reset to original';
@@ -527,11 +576,10 @@ function reset() {
 }
 
 function apply_config_changes() {
-  config = read_config_values(config, inputs);
+  read_inputs_into_cofig(inputs, config);
 }
 
-function read_config_values(some_config, inputs_list) {
-  some_config = _deepClone(some_config);
+function read_inputs_into_cofig(inputs_list, some_config) {
   for (const category in inputs_list) {
     if (category == "society") {
       for (const index in inputs_list[category]) {
@@ -545,5 +593,4 @@ function read_config_values(some_config, inputs_list) {
       }
     }
   }
-  return some_config;
 }
