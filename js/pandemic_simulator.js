@@ -1,16 +1,16 @@
-const _VERSION = "3.3.7_dev";
+const _VERSION = "3.4.0";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 
-INITIAL_SCREEN_WIDTH = $(window).width()*2/4;
-INITIAL_SCREEN_HEIGHT = $(window).width()*2/4;
-const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=1, RESULTION= 1, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 100, PAUSED=0)
+INITIAL_SCREEN_WIDTH = 1000//$(window).width()*2/4;
+INITIAL_SCREEN_HEIGHT = 1000//$(window).width()*2/4;
+const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=1, RESULTION= 1, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 1, PAUSED=0)
 const PERIMITERS = [new Perimeter(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT)]//, new Perimeter(400, 900, 100, 400)];
 const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=PERIMITERS);
-const DEFAULT_SOCIETY_CONFIG = new Society(V_MAX= 5, MAX_FORCE= 1, PERCENTAGE_QUARANTINED= 0.5, HYGIENE= 5, COUNT= 1000, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.3, COHESION= 0.01, ALIGNMENT= 0, OPENING= Math.PI/4, PERIMITER=undefined);
-const CRAZY_SOCIETY_CONFIG = new Society(V_MAX= 20, MAX_FORCE= 2, PERCENTAGE_QUARANTINED= 0.1, HYGIENE= 20, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.02, ALIGNMENT= 0, OPENING= Math.PI/4, PERIMITER=undefined);
-const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.071, B=0.067, C=-0.169, DAYS_OF_SICKNESS= 30, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 60)
-const DEFAULT_CONFIG = new Configuration(_VERSION, [DEFAULT_SOCIETY_CONFIG,CRAZY_SOCIETY_CONFIG], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
+const DEFAULT_SOCIETY_CONFIG = new Society(V_MAX= 30, MAX_FORCE= 1, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 2, COUNT= 8500, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.3, COHESION= 0.01, ALIGNMENT= 0, OPENING= Math.PI/4, PERIMITER=undefined, PERCENTAGE_QUARANTINED=0.8);
+const CRAZY_SOCIETY_CONFIG = new Society(V_MAX= 20, MAX_FORCE= 2, DAYS_UNTIL_QUARANTINED= 5, HYGIENE= 20, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.02, ALIGNMENT= 0, OPENING= Math.PI/4, PERIMITER=undefined, PERCENTAGE_QUARANTINED=0.7);
+const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.071, B=0.067, C=-0.169, DAYS_OF_SICKNESS= 30, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 365, PERCENTAGE_INFECTION=0.5, DAYS_INCUBATION=4)
+const DEFAULT_CONFIG = new Configuration(_VERSION, [DEFAULT_SOCIETY_CONFIG,], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
  
 function _deepClone(obj) {
   if (obj === null || typeof obj !== "object")
@@ -30,13 +30,13 @@ function deserialize_config(s) {
 
 const HERD_SOCIETY = {
   "V_MAX": 10,
-  "PERCENTAGE_QUARANTINED": 0.1,
+  "DAYS_UNTIL_QUARANTINED": 2,
   "HYGIENE": 6,
 };
 
 const SOCIAL_DISTANCING_SOCIETY = {
   "V_MAX": 3,
-  "PERCENTAGE_QUARANTINED": 0.9,
+  "DAYS_UNTIL_QUARANTINED": 1,
   "HYGIENE": 3.5,
   "SEPERATION": 0.3,
   "COHESION": 0.06,
@@ -51,7 +51,7 @@ const COLORS = {
   "carrier": "brown",
   "sick": "red",
   "quarantine": "black",
-  // "incubation": "orange",
+  "incubating": "orange",
 };
 
 const INFO_SIZE = 40 + 15 * Object.keys(COLORS).length;
@@ -153,8 +153,8 @@ function update_simulation(population) {
     
     current_organism.move(config.simulation.RESULTION, fx, fy, config.world.PERIMETERS);
     counters[current_organism.state] += 1;
-    ind++;
   }
+  ind++;
   return counters;
 }
 
@@ -243,6 +243,7 @@ function create_chart(id, type, groups, series, title) {
   var chart = new CanvasJS.Chart(id, {
     theme: "light2",
     animationEnabled: true,
+    zoomEnabled: true,
     title: {
       text: title
     },
@@ -256,6 +257,9 @@ function create_chart(id, type, groups, series, title) {
       fontColor: "dimGrey",
       usePointStyle: true,
       itemclick : toggleDataSeries,
+    },
+    axisX: {
+      title: "Time [days]",
     },
     data: series,
   });
