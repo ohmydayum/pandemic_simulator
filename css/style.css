@@ -11,8 +11,7 @@ canvas {
     font-weight: bold;
 }
 
-#graph div{
-    width:700px;
+#graph div div div div{
     height:500px;
     margin-bottom:1%;
 }

@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="en">
-  <head>
+<head>
   <link rel="shortcut icon" href="./favicon.png"/>
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
   
   <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
-
+  
   <script type="text/javascript" src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
   <link rel="stylesheet" href="./css/style.css" />
   <link rel="stylesheet" href="./css/material-icons.min.css">
@@ -28,7 +28,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <nav class="container-fluid navbar navbar-expand-lg navbar-dark bg-dark">
     <a class="navbar-brand mb-0 h1" style="color:white" id="title"></a>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
@@ -44,93 +44,114 @@
     </div>
     <button onclick="window.location.href = 'mailto:dor.israeli+pandemic@gmail.com?subject=Cool simulator!'" class="btn btn-dark navbar-btn"><i class="mdi mdi-email"></i> dor</button>
     
-  </nav>
-  <div id="simulation-holder"></div> 
-  <div id="graph">
-    <table>
-      <tr>
-        <td>
-          <div id="line_chart">No canvas support, so no line chart for you...</div>
-        </td>
-        <td>
-          <div id="stacked_chart">No canvas support, so no stacked chart for you...</div>
-        </td>
-      </tr>
-    </table>
+  </nav> 
+  <div id="graph" class="container-fluid">
+    <div class="row">
+      <div class="col-sm">
+        <div id="line_chart">No canvas support, so no line chart for you...</div>
+      </div>
+      <div class="col-sm">
+        <div id="stacked_chart">No canvas support, so no stacked chart for you...</div>
+      </div>
+    </div>
   </div>
   <div id="buttons" class="btn-group">
     <button type="button" class="btn-info" data-toggle="collapse" data-target="#configurations"><span class="mdi mdi-mode-edit"></span> Edit configuration</button>
-    <div class="modal fade" id="modal_link_copied">
-      <div class="modal-dialog">
-        <div class="modal-content">
-    
-          <!-- Modal Header -->
-          <div class="modal-header">
-            <h4 class="modal-title">Hooray!</h4>
-            <button type="button" class="close" data-dismiss="modal">&times;</button>
-          </div>
-    
-          <!-- Modal body -->
-          <div class="modal-body">
-            Shareable simulation link copied successfully to your clipboard.
-          </div>
-    
-          <!-- Modal footer -->
-          <div class="modal-footer">
-            <button type="button" class="btn btn-success" data-dismiss="modal">Close</button>
-          </div>
-    
+  </div>
+  <div id="configurations" class="panel-group collapse in" style="width:80%"></div>
+  <div id="simulation-holder"></div>
+  <div class="modal fade" id="modal_link_copied">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title">Hooray!</h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
         </div>
-      </div>
-    </div>
-    <div class="modal fade" id="modal_configuration_loaded">
-      <div class="modal-dialog">
-        <div class="modal-content">
-    
-          <!-- Modal Header -->
-          <div class="modal-header">
-            <h4 class="modal-title">Nice!</h4>
-            <button type="button" class="close" data-dismiss="modal">&times;</button>
-          </div>
-    
-          <!-- Modal body -->
-          <div class="modal-body">
-            Configuration loaded successfully!
-          </div>
-    
-          <!-- Modal footer -->
-          <div class="modal-footer">
-            <button type="button" class="btn btn-info" data-dismiss="modal">Close</button>
-          </div>
-    
+        
+        <!-- Modal body -->
+        <div class="modal-body">
+          Shareable simulation link copied successfully to your clipboard.
         </div>
-      </div>
-    </div>
-    <div class="modal fade" id="modal_configuration_not_loaded">
-      <div class="modal-dialog">
-        <div class="modal-content">
-    
-          <!-- Modal Header -->
-          <div class="modal-header">
-            <h4 class="modal-title">Oops!</h4>
-            <button type="button" class="close" data-dismiss="modal">&times;</button>
-          </div>
-    
-          <!-- Modal body -->
-          <div class="modal-body">
-            Configuration could not be loaded.
-          </div>
-    
-          <!-- Modal footer -->
-          <div class="modal-footer">
-            <button type="button" class="btn btn-danger" data-dismiss="modal">Use default configuration</button>
-          </div>
-    
+        
+        <!-- Modal footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-success" data-dismiss="modal">Close</button>
         </div>
+        
       </div>
     </div>
   </div>
-  <div id="configurations" class="panel-group collapse in" style="width:80%"></div>
+  <div class="modal fade" id="modal_configuration_loaded">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title">Nice!</h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        
+        <!-- Modal body -->
+        <div class="modal-body">
+          Configuration loaded successfully!
+        </div>
+        
+        <!-- Modal footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-info" data-dismiss="modal">Close</button>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="modal_configuration_deserialization_error">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h4 class="modal-title">Oops!</h4>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        
+        <!-- Modal body -->
+        <div class="modal-body">
+          Configuration could not be deserialized.
+        </div>
+        
+        <!-- Modal footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" data-dismiss="modal">Use default configuration</button>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="modal_configuration_version_mismatch_error">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <h4 class="modal-title">Oops!</h4>
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+      </div>
+      
+      <!-- Modal body -->
+      <div class="modal-body">
+        Configuration is of a different version.
+      </div>
+      
+      <!-- Modal footer -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" data-dismiss="modal">Use default configuration</button>
+      </div>
+      
+    </div>
+  </div>
 </body>
 </html>
 

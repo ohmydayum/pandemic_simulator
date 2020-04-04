@@ -1,16 +1,16 @@
-const _VERSION = "3.3.2";
+const _VERSION = "3.3.7_dev";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 
-INITIAL_SCREEN_WIDTH = $(window).width()*3/4;
-INITIAL_SCREEN_HEIGHT = $(window).width()*3/4;
-const DEFAULT_SIMULATION_CONFIG = new Simulation(RESULTION= 1, GRAPH_DURATION= 500, CANVAS_WIDTH=1500, CANVAS_HEIGHT=500, SKIPS= 1, PAUSED=0)
-const PERIMITERS = [new Perimeter(0, CANVAS_WIDTH, 0, CANVAS_HEIGHT)]//, new Perimeter(400, 900, 100, 400)];
+INITIAL_SCREEN_WIDTH = $(window).width()*2/4;
+INITIAL_SCREEN_HEIGHT = $(window).width()*2/4;
+const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=1, RESULTION= 1, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 100, PAUSED=0)
+const PERIMITERS = [new Perimeter(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT)]//, new Perimeter(400, 900, 100, 400)];
 const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=PERIMITERS);
-const DEFAULT_SOCIETY_CONFIG = new Society(V_MAX= 4, MAX_FORCE= 1, PERCENTAGE_QUARANTINED= 0.5, HYGIENE= 5, COUNT= 1000, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.07, ALIGNMENT= 0.1, OPENING= Math.PI/4, PERIMITER=PERIMITERS[0]);
-const CRAZY_SOCIETY_CONFIG = new Society(V_MAX= 7, MAX_FORCE= 2, PERCENTAGE_QUARANTINED= 0.1, HYGIENE= 20, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.07, ALIGNMENT= 0.1, OPENING= Math.PI/4, PERIMITER=PERIMITERS[0]);
-const DEFAULT_PANDEMIC_CONFIG = new Pandemic(DEATH_PERCENTAGE= 0.2, DAYS_OF_SICKNESS= 30, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 60)
-const DEFAULT_CONFIG = new Configuration(_VERSION, [DEFAULT_SOCIETY_CONFIG, CRAZY_SOCIETY_CONFIG, ], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
+const DEFAULT_SOCIETY_CONFIG = new Society(V_MAX= 5, MAX_FORCE= 1, PERCENTAGE_QUARANTINED= 0.5, HYGIENE= 5, COUNT= 1000, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.3, COHESION= 0.01, ALIGNMENT= 0, OPENING= Math.PI/4, PERIMITER=undefined);
+const CRAZY_SOCIETY_CONFIG = new Society(V_MAX= 20, MAX_FORCE= 2, PERCENTAGE_QUARANTINED= 0.1, HYGIENE= 20, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.02, ALIGNMENT= 0, OPENING= Math.PI/4, PERIMITER=undefined);
+const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.071, B=0.067, C=-0.169, DAYS_OF_SICKNESS= 30, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 60)
+const DEFAULT_CONFIG = new Configuration(_VERSION, [DEFAULT_SOCIETY_CONFIG,CRAZY_SOCIETY_CONFIG], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
  
 function _deepClone(obj) {
   if (obj === null || typeof obj !== "object")
@@ -51,14 +51,9 @@ const COLORS = {
   "carrier": "brown",
   "sick": "red",
   "quarantine": "black",
+  // "incubation": "orange",
 };
 
-const CONFIG_CATEGORY_COLORS = {
-  "SOCIETY": "#4444ff",
-  "SOCIETY": "#772277",
-  "PANDEMIC": "#ff4444",
-  "SIMULATION": "#448844",
-};
 const INFO_SIZE = 40 + 15 * Object.keys(COLORS).length;
 
 var population = [];
@@ -73,17 +68,20 @@ function setup() {
   create_buttons();
   var queryString = window.location.search;
   var urlParams = new URLSearchParams(queryString);
+  config = _deepClone(DEFAULT_CONFIG);
   if (urlParams.has("config")) {
     s = urlParams.get("config");
     try{
-      config = deserialize_config(s);
-      $("#modal_configuration_loaded").modal('show');
+      let loaded_config = deserialize_config(s);
+      if (loaded_config.version == _VERSION) {
+        config = loaded_config;
+        $("#modal_configuration_loaded").modal('show');
+      } else {
+        $("#modal_configuration_version_mismatch_error").modal('show'); 
+      }
     } catch {
-      $("#modal_configuration_not_loaded").modal('show');
-      config = _deepClone(DEFAULT_CONFIG);
+      $("#modal_configuration_deserialization_error").modal('show');
     }
-  } else {
-    config = _deepClone(DEFAULT_CONFIG);
   }
   run();
 }
@@ -102,29 +100,7 @@ function create_header() {
   // document.getElementById("fluid").appendChild(credit);
 }
 
-function draw() {
-  if (ind%config.simulation.SKIPS==0) {
-    fill(255);
-    rect(0, 0, config.simulation.CANVAS_WIDTH, config.simulation.CANVAS_HEIGHT);
-    for (const key in config.world.PERIMETERS) {
-      p = config.world.PERIMETERS[key];
-      noFill();
-      stroke(0);
-      strokeWeight(2);
-      rect(p.x_left, p.y_top, p.x_right-p.x_left, p.y_bottom-p.y_top)
-    }
-  }
-  
-  if (config.simulation.PAUSED==1) {
-    fill(180);
-    rect(0, 0, config.simulation.CANVAS_WIDTH, config.simulation.CANVAS_HEIGHT);
-    for (i = 0; i < population.length ; i++) {
-      current_organism = population[i];
-      draw_organism(current_organism);
-    }
-    return;
-  };
-  
+function update_simulation(population) {
   counters = {}
   for (key in COLORS) {
     counters[key] = 0;
@@ -140,9 +116,6 @@ function draw() {
     is_healthcare_collapsed = counters["sick"]/population.length > config.world.HEALTHCARE_CAPACITY;
     current_organism.update_health(config.pandemic, is_healthcare_collapsed, config.simulation.RESULTION);
     
-    if (ind%config.simulation.SKIPS==0) {
-      draw_organism(current_organism);
-    }
     let sight_neighbours = tree.nearest(current_organism, 20, current_organism.society.SIGHT);
     let f_seperation_x = 0;
     let f_seperation_y = 0;
@@ -155,7 +128,8 @@ function draw() {
     for (j = 0; j < sight_neighbours.length; j++) {
       let other_organism = sight_neighbours[j][0];
       let distance = sight_neighbours[j][1];
-      if (current_organism == other_organism || !current_organism.can_see(other_organism) || other_organism.is_dead()) {
+      if (current_organism == other_organism || other_organism.is_dead()) {
+      // if (current_organism == other_organism || !current_organism.can_see(other_organism) || other_organism.is_dead()) {  
         continue;
       }
       insight++;
@@ -181,9 +155,48 @@ function draw() {
     counters[current_organism.state] += 1;
     ind++;
   }
-  
+  return counters;
+}
+
+function hide_canvas() {
+  document.getElementById("simulation-holder").style = "display:none";
+}
+
+function show_canvas() {
+  document.getElementById("simulation-holder").style = "display:block";
+}
+
+function draw() {
+  if (config.simulation.PAUSED==0) {
+    counters = update_simulation(population);
+    if (ind%config.simulation.SKIPS==0) {
+      update_charts(counters);
+    }
+  }
+
+  if (config.simulation.SHOW==0) {
+    hide_canvas();
+  } else if (ind%config.simulation.SKIPS==0) {
+    show_canvas();
+    if (config.simulation.PAUSED==0) {
+      draw_world();
+    } else {
+      draw_paused_world();
+    }
+    draw_population(config.population);
+  }
+}
+
+function draw_population() {
+  for (i = 0; i < population.length ; i++) {
+    current_organism = population[i];
+    draw_organism(current_organism);
+  }
+}
+
+function update_charts(counters) {
   let line_counters = _deepClone(counters);
-  delete line_counters.healthy;
+  line_counters['Healthcare Capacity'] = population.length * config.world.HEALTHCARE_CAPACITY;
   update_chart(line_chart, line_counters, line_series);
   counters_percents = {};
   for (let i = 0; i < Object.keys(counters).length; i++) {
@@ -192,16 +205,38 @@ function draw() {
   update_chart(stacked_chart, counters_percents, stacked_series);
 }
 
+function draw_world() {
+  fill(255);
+  rect(0, 0, config.simulation.CANVAS_WIDTH, config.simulation.CANVAS_HEIGHT);
+  for (const key in config.world.PERIMETERS) {
+    p = config.world.PERIMETERS[key];
+    noFill();
+    stroke(0);
+    strokeWeight(2);
+    rect(p.x_left, p.y_top, p.x_right-p.x_left, p.y_bottom-p.y_top)
+  }
+}
+function draw_paused_world() {
+  fill(180);
+  rect(0, 0, config.simulation.CANVAS_WIDTH, config.simulation.CANVAS_HEIGHT);
+  for (const key in config.world.PERIMETERS) {
+    p = config.world.PERIMETERS[key];
+    noFill();
+    stroke(0);
+    strokeWeight(2);
+    rect(p.x_left, p.y_top, p.x_right-p.x_left, p.y_bottom-p.y_top)
+  }
+}
+
 function create_chart(id, type, groups, series, title) {
-  for (let i = 0; i < Object.keys(COLORS).length; i++) {
-    if (Object.keys(COLORS)[i]=="healthy"&&type=="line") {continue};
+  for (let i = 0; i < Object.keys(groups).length; i++) {
     series.push({			
       type: type,
       showInLegend: true,
-      name: Object.keys(COLORS)[i],
+      name: Object.keys(groups)[i],
       dataPoints: [],
-      color: Object.values(COLORS)[i],
-      pointStyle: 'line'
+      color: Object.values(groups)[i],
+      visible: !(type=="line"&&Object.keys(groups)[i]=="healthy"),
     });
   }
 
@@ -217,13 +252,23 @@ function create_chart(id, type, groups, series, title) {
     legend: {
       cursor:"pointer",
       verticalAlign: "top",
-      fontSize: 14,
+      fontSize: 15,
       fontColor: "dimGrey",
       usePointStyle: true,
+      itemclick : toggleDataSeries,
     },
     data: series,
   });
   return chart;
+}
+
+function toggleDataSeries(e) {
+	if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
+		e.dataSeries.visible = false;
+	}
+	else {
+		e.dataSeries.visible = true;
+	}
 }
 
 
@@ -275,23 +320,38 @@ function run() {
   line_series = [];
   stacked_series = []
   stacked_chart = create_chart("stacked_chart", "stackedArea100", COLORS, stacked_series, "Stacked Population Segmentation");
-  line_chart = create_chart("line_chart", "line", COLORS, line_series, "Affected Groups Sizes");
+  let line_groups = _deepClone(COLORS);
+  // delete line_groups.healthy;
+  line_groups['Healthcare Capacity'] = 'pink';
+  line_chart = create_chart("line_chart", "line", line_groups, line_series, "Affected Groups Sizes");
   
   population = create_population(config.societies);
+}
+
+function getRandom(max, min) {
+  if (min === undefined) {min=0};
+  if (max === undefined) {max=1}; 
+  return min + Math.random()*(max-min);
 }
 
 function create_population(societies) {
   population = [];
   Object.values(societies).forEach(society => {
     for (i = 0; i < society.COUNT; i++) {
-      age = Math.ceil(random(0, 100));
-      x = random(society.PERIMETER.x_left, society.PERIMETER.x_right);
-      y = random(society.PERIMETER.y_top, society.PERIMETER.y_bottom);
-      angle = random(2*Math.PI);
-      vx = random() * society.V_MAX * Math.cos(angle);
-      vy = random() * society.V_MAX * Math.sin(angle);
+      // age = 100*(1-getRandom()**0.5);
+      age = getRandom(100);
+      if (society.PERIMETER != undefined) {
+        x = getRandom(society.PERIMETER.x_left, society.PERIMETER.x_right);
+        y = getRandom(society.PERIMETER.y_top, society.PERIMETER.y_bottom);
+      } else {
+        x = getRandom(0, config.simulation.CANVAS_WIDTH);
+        y = getRandom(0, config.simulation.CANVAS_HEIGHT);
+      }
+      angle = getRandom(2*Math.PI);
+      vx = getRandom() * society.V_MAX * Math.cos(angle);
+      vy = getRandom() * society.V_MAX * Math.sin(angle);
       initial_state = "healthy";
-      if (random() < society.PERCENTAGE_INITIAL_SICKNESS) {
+      if (getRandom() < society.PERCENTAGE_INITIAL_SICKNESS) {
         initial_state = "sick";
       }
       current_organism = new Organism(age, x, y, vx, vy, initial_state, society);
@@ -455,8 +515,20 @@ function pause_simulation() {
   inputs.simulation.PAUSED.value = 1;
 }
 
+function toggle_visualization() {
+  config.simulation.SHOW = 1-config.simulation.SHOW;
+  inputs.simulation.SHOW.value = 1-inputs.simulation.SHOW.value;
+}
+
 function create_buttons() {
   buttons_div = document.getElementById("buttons");
+  
+  
+  visualizaion_button = document.createElement("button");
+  visualizaion_button.innerHTML = '<span class="mdi mdi-remove-red-eye"></span> Visualization';
+  visualizaion_button.classList.add("btn-success");
+  visualizaion_button.addEventListener("click", toggle_visualization);
+  buttons_div.appendChild(visualizaion_button) 
   
   apply_changes_button = document.createElement("button");
   apply_changes_button.innerHTML = '<span class="mdi mdi-check"></span> Apply config changes';
@@ -579,4 +651,6 @@ function read_inputs_into_cofig(inputs_list, some_config) {
       }
     }
   }
+  let WORLD_PERIMETER = new Perimeter(0, some_config.simulation.CANVAS_WIDTH, 0, some_config.simulation.CANVAS_HEIGHT);
+  some_config.world.PERIMETERS = [WORLD_PERIMETER];
 }

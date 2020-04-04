@@ -15,7 +15,6 @@ class Organism {
         return Math.abs(this.get_angle_to(other) - this.get_angle()) < this.society.OPENNING && (this.x-other.x)**2+(this.y-other.y)**2 < this.society.SIGHT**2;
     }
     
-    // TODO
     move(dt, fx, fy, perimeters) {
         if (this.state == "quarantine" || this.state == "dead") {
             return;
@@ -74,9 +73,7 @@ class Organism {
             } else {
                 this.become_sick();
             }
-            return true;
         }
-        return false;
     }
     
     update_health(pandemic, is_healthcare_collapsed, dt) {
@@ -84,11 +81,11 @@ class Organism {
             return;
         }
         
-        this.days_immune += dt;
         if (this.state == "immune" && this.days_immune > pandemic.DAYS_IMMUNE_PASS) {
             this.become_healthy()
             return;
         }
+        this.days_immune += dt;
         
         if (!(this.state == "carrier" || this.state == "quarantine" || this.state == "sick")) {
             return;
@@ -99,12 +96,12 @@ class Organism {
             return;
         }
         
-        let p = pandemic.DEATH_PERCENTAGE * (this.age / 100) ** 2;
+        let p = pandemic.A * Math.exp(pandemic.B * age) + pandemic.C;
         if (is_healthcare_collapsed) {
-            p = pandemic.DEATH_PERCENTAGE
+            p = pandemic.A * Math.exp(pandemic.B * 90) + pandemic.C
         }
         
-        if (random() < p) {
+        if (random(100) < p) {
             this.become_dead();
         } else if (random() < pandemic.PERCENTAGE_BECOMING_IMMUNE) {
             this.become_immune();
