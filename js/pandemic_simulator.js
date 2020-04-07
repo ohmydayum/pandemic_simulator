@@ -1,17 +1,20 @@
-const _VERSION = "3.4.0";
+const _VERSION = "3.9.0";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
-
-INITIAL_SCREEN_WIDTH = 1000//$(window).width()*2/4;
-INITIAL_SCREEN_HEIGHT = 1000//$(window).width()*2/4;
-const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=1, RESULTION= 1, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 1, PAUSED=0)
-const PERIMITERS = [new Perimeter(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT)]//, new Perimeter(400, 900, 100, 400)];
+const BUCKET_SIZE = 5;
+const AGES_BUCKETS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70];
+const TLV_bs_p =  [3/2, 3/2, 4/2, 4/2, 1.7/2, 1.7/2, 2.5/2, 2.5/2, 4.3/2, 4.3/2, 4.6/2, 4.6/2, 5.5/2, 5.5/2, 2.5/2, 2.5/2];
+const BB_bs_p =  [16.8, 13.1, 11, 10.3, 16.5/2, 16.5/2, 14.5/3, 14.5/3, 14.5/3, 8.2/3, 8.2/3, 8.2/3, 2.7, 2.5, 4.4];
+const INITIAL_SCREEN_WIDTH = 1000//$(window).width()*2/4;
+const INITIAL_SCREEN_HEIGHT = 1000//$(window).width()*2/4;
+const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=0, EPOCH= 0.16, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 1, PAUSED=0)
+const PERIMITERS = [new Perimeter(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT, function(o) {return false})]//, new Perimeter(0, 300, 300, 600, function(o) {return getRandom()<0.01}), new Perimeter(0, 300, 0, 290, function(o) {return o.vy<0})];
 const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=PERIMITERS);
-const DEFAULT_SOCIETY_CONFIG = new Society(V_MAX= 30, MAX_FORCE= 1, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 2, COUNT= 8500, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.3, COHESION= 0.01, ALIGNMENT= 0, OPENING= Math.PI/4, PERIMITER=undefined, PERCENTAGE_QUARANTINED=0.8);
-const CRAZY_SOCIETY_CONFIG = new Society(V_MAX= 20, MAX_FORCE= 2, DAYS_UNTIL_QUARANTINED= 5, HYGIENE= 20, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 0.01, SIGHT= 8, SEPERATION= 0.2, COHESION= 0.02, ALIGNMENT= 0, OPENING= Math.PI/4, PERIMITER=undefined, PERCENTAGE_QUARANTINED=0.7);
-const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.071, B=0.067, C=-0.169, DAYS_OF_SICKNESS= 30, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 365, PERCENTAGE_INFECTION=0.5, DAYS_INCUBATION=4)
-const DEFAULT_CONFIG = new Configuration(_VERSION, [DEFAULT_SOCIETY_CONFIG,], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
- 
+const TLV_SOCIETY_CONFIG = new Society(V_MAX= 10, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 8500, PERCENTAGE_INITIAL_SICKNESS= 0.01, PERIMITER= PERIMITERS[0], PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p);
+// const BB_SOCIETY_CONFIG = new Society(V_MAX= 30, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 10, COUNT= 200, PERCENTAGE_INITIAL_SICKNESS= 0.1, PERIMITER=PERIMITERS[1], PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = BB_bs_p);
+const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.05402627, B=0.07023024, C=0.08371868, DAYS_OF_SICKNESS= 14, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 365, PERCENTAGE_INFECTION=0.5, DAYS_INCUBATION=1)
+const DEFAULT_CONFIG = new Configuration(_VERSION, [TLV_SOCIETY_CONFIG,], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
+
 function _deepClone(obj) {
   if (obj === null || typeof obj !== "object")
   return obj
@@ -23,27 +26,11 @@ function _deepClone(obj) {
 }
 
 var config;
+var tree;
 
 function deserialize_config(s) {
   return JSON.parse(atob(decodeURIComponent(s)));
 }
-
-const HERD_SOCIETY = {
-  "V_MAX": 10,
-  "DAYS_UNTIL_QUARANTINED": 2,
-  "HYGIENE": 6,
-};
-
-const SOCIAL_DISTANCING_SOCIETY = {
-  "V_MAX": 3,
-  "DAYS_UNTIL_QUARANTINED": 1,
-  "HYGIENE": 3.5,
-  "SEPERATION": 0.3,
-  "COHESION": 0.06,
-};
-
-////////////////////////
-
 const COLORS = {
   "dead": "gray",
   "healthy": "green",
@@ -54,13 +41,11 @@ const COLORS = {
   "incubating": "orange",
 };
 
-const INFO_SIZE = 40 + 15 * Object.keys(COLORS).length;
-
 var population = [];
 var ind;
 var config = {};
 var inputs = [];
-
+var counters;
 function setup() {
   create_header();
   let canvas = createCanvas(1, 1);
@@ -83,6 +68,16 @@ function setup() {
       $("#modal_configuration_deserialization_error").modal('show');
     }
   }
+  
+  counters = {}
+  Object.keys(COLORS).forEach(k=> {
+    counters[k] = 0;
+  });
+  for (i = 0; i < population.length ; i++) {
+    current_organism = population[i];
+    counters[current_organism.state] += 1;
+  }
+
   run();
 }
 
@@ -100,62 +95,45 @@ function create_header() {
   // document.getElementById("fluid").appendChild(credit);
 }
 
-function update_simulation(population) {
-  counters = {}
+function update_simulation(population, old_counters) {
+  let dps = {};
+  
+  let some_counters = {};
   for (key in COLORS) {
-    counters[key] = 0;
+    some_counters[key] = 0;
   }
-  var tree = new kdTree(population, Organism.distance, ["x", "y"]);
+
+  // maybe just naive iteration
   for (i = 0; i < population.length ; i++) {
     current_organism = population[i];
-    infection_neighbours = tree.nearest(current_organism, 20, current_organism.society.HYGIENE);
-    for (j = 0; j < infection_neighbours.length; j++) {
-      other_organism = infection_neighbours[j][0];
-      is_infected_by = other_organism.get_touched_by(current_organism, config.pandemic);
-    }
-    is_healthcare_collapsed = counters["sick"]/population.length > config.world.HEALTHCARE_CAPACITY;
-    current_organism.update_health(config.pandemic, is_healthcare_collapsed, config.simulation.RESULTION);
-    
-    let sight_neighbours = tree.nearest(current_organism, 20, current_organism.society.SIGHT);
-    let f_seperation_x = 0;
-    let f_seperation_y = 0;
-    let f_cohesion_x = 0;
-    let f_cohesion_y = 0;
-    let f_alignment_x = 0;
-    let f_alignment_y = 0;
-    let insight = 1;
-    
-    for (j = 0; j < sight_neighbours.length; j++) {
-      let other_organism = sight_neighbours[j][0];
-      let distance = sight_neighbours[j][1];
-      if (current_organism == other_organism || other_organism.is_dead()) {
-      // if (current_organism == other_organism || !current_organism.can_see(other_organism) || other_organism.is_dead()) {  
-        continue;
+    if (current_organism.is_dead()) {
+      let a_b = current_organism.age-(current_organism.age%BUCKET_SIZE);
+      if (dps[a_b] == undefined) {dps[a_b]=0};
+      dps[a_b]++;
+    } else if (current_organism.state=="sick" || current_organism.state=="carrier") {
+      infection_neighbours = tree.nearest(current_organism, 20, current_organism.society.HYGIENE);
+      for (j = 0; j < infection_neighbours.length; j++) {
+        other_organism = infection_neighbours[j][0];
+        if (!(other_organism.state=="healthy")) {continue};
+        other_organism.get_touched_by(current_organism, config.pandemic, config.simulation.EPOCH);
       }
-      insight++;
-      f_seperation_x += (current_organism.x - other_organism.x)/distance;
-      f_seperation_y += (current_organism.y - other_organism.y)/distance;
-      f_cohesion_x += other_organism.x - current_organism.x;
-      f_cohesion_y += other_organism.y - current_organism.y;
-      f_alignment_x += other_organism.vx - current_organism.vx;
-      f_alignment_y += other_organism.vy - current_organism.vy;
     }
-    f_seperation_x /= insight;
-    f_seperation_y /= insight;
-    f_cohesion_x /= insight;
-    f_cohesion_y /= insight;
-    f_alignment_x /= insight;
-    f_alignment_y /= insight;
-    let fx = f_seperation_x * current_organism.society.SEPERATION + f_cohesion_x * current_organism.society.COHESION + f_alignment_x * current_organism.society.ALIGNMENT;
-    fx = Math.max(-current_organism.society.MAX_FORCE, Math.min(fx, current_organism.society.MAX_FORCE));
-    let fy = f_seperation_y * current_organism.society.SEPERATION + f_cohesion_y * current_organism.society.COHESION + f_alignment_y * current_organism.society.ALIGNMENT;
-    fy = Math.max(-current_organism.society.MAX_FORCE, Math.min(fy, current_organism.society.MAX_FORCE));
-    
-    current_organism.move(config.simulation.RESULTION, fx, fy, config.world.PERIMETERS);
-    counters[current_organism.state] += 1;
+    tree.remove(current_organism);
+
+    is_healthcare_collapsed = (old_counters['sick']+old_counters['quarantine'])/population.length > config.world.HEALTHCARE_CAPACITY;
+    current_organism.update_health(config.pandemic, is_healthcare_collapsed, config.simulation.EPOCH);
+    let a = getRandom(2*Math.PI);
+    let f = getRandom(current_organism.society.MAX_FORCE)
+    let fx = f * Math.cos(a);
+    let fy = f * Math.sin(a);
+    current_organism.move(config.simulation.EPOCH, fx, fy, config.world.PERIMETERS);
+    if (!current_organism.is_dead()) {
+      tree.insert(current_organism);
+    }
+    some_counters[current_organism.state] += 1;
   }
   ind++;
-  return counters;
+  return [some_counters, dps];
 }
 
 function hide_canvas() {
@@ -166,14 +144,25 @@ function show_canvas() {
   document.getElementById("simulation-holder").style = "display:block";
 }
 
+function inform_pandemic_over() {
+  pause_simulation();
+  $("#modal_pandemic_over").modal('show');
+}
+
 function draw() {
   if (config.simulation.PAUSED==0) {
-    counters = update_simulation(population);
+    let cd = update_simulation(population, counters);
+    counters = cd[0];
+    let dps = cd[1];
     if (ind%config.simulation.SKIPS==0) {
-      update_charts(counters);
+      t = ind*config.simulation.EPOCH;
+      update_charts(counters, t, dps);
+    }
+    if (counters['healthy']+counters['immune']+counters['dead'] == population.length) {
+      inform_pandemic_over();
     }
   }
-
+  
   if (config.simulation.SHOW==0) {
     hide_canvas();
   } else if (ind%config.simulation.SKIPS==0) {
@@ -194,15 +183,21 @@ function draw_population() {
   }
 }
 
-function update_charts(counters) {
-  let line_counters = _deepClone(counters);
-  line_counters['Healthcare Capacity'] = population.length * config.world.HEALTHCARE_CAPACITY;
-  update_chart(line_chart, line_counters, line_series);
-  counters_percents = {};
-  for (let i = 0; i < Object.keys(counters).length; i++) {
-    counters_percents[Object.keys(counters)[i]] = (Object.values(counters)[i]/Object.keys(population).length*100).toFixed(2);
+function update_charts(some_counters, t, dps) {
+  let line_some_counters = _deepClone(some_counters);
+  line_some_counters['Healthcare Capacity'] = population.length * config.world.HEALTHCARE_CAPACITY;
+  update_chart(line_chart, line_some_counters, line_series, t);
+  some_counters_percents = {};
+  for (let i = 0; i < Object.keys(some_counters).length; i++) {
+    some_counters_percents[Object.keys(some_counters)[i]] = (Object.values(some_counters)[i]/Object.keys(population).length*100).toFixed(2);
   }
-  update_chart(stacked_chart, counters_percents, stacked_series);
+  update_chart(stacked_chart, some_counters_percents, stacked_series, t);
+  
+  for (let i = 0; i < Object.keys(dps).length; i++) {
+    const element = Object.values(dps)[i];
+    ages_chart.data[0].dataPoints[Object.keys(dps)[i]/BUCKET_SIZE].y = Object.values(dps)[i]; 
+  }
+  ages_chart.render();
 }
 
 function draw_world() {
@@ -239,9 +234,10 @@ function create_chart(id, type, groups, series, title) {
       visible: !(type=="line"&&Object.keys(groups)[i]=="healthy"),
     });
   }
-
+  
   var chart = new CanvasJS.Chart(id, {
     theme: "light2",
+    exportEnabled: true,
     animationEnabled: true,
     zoomEnabled: true,
     title: {
@@ -267,21 +263,21 @@ function create_chart(id, type, groups, series, title) {
 }
 
 function toggleDataSeries(e) {
-	if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
-		e.dataSeries.visible = false;
-	}
-	else {
-		e.dataSeries.visible = true;
-	}
+  if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
+    e.dataSeries.visible = false;
+  }
+  else {
+    e.dataSeries.visible = true;
+  }
 }
 
 
-function update_chart(chart, current_counters, series) {
-  for (var i = 0; i < Object.keys(current_counters).length; i++) {
-    series[i].legendText = Object.keys(current_counters)[i] + " " + Object.values(current_counters)[i];
+function update_chart(chart, current_some_counters, series, t) {
+  for (var i = 0; i < Object.keys(current_some_counters).length; i++) {
+    series[i].legendText = Object.keys(current_some_counters)[i] + " " + Object.values(current_some_counters)[i];
     series[i].dataPoints.push({
-      x: ind,
-      y: float(Object.values(current_counters)[i])
+      x: t,
+      y: float(Object.values(current_some_counters)[i])
     });
   }
   chart.render();
@@ -311,25 +307,63 @@ function restart_with_input_config() {
   run();
 }
 
+function scroll_to_top() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 var line_chart;
 var stacked_chart;
 var line_series;
 var stacked_series;
+let ages_chart;
+let dps_r;
 function run() {
   ind = 0;
   create_configuration_controls();
   resizeCanvas(config.simulation.CANVAS_WIDTH, config.simulation.CANVAS_HEIGHT);
   
-  
+  scroll_to_top();
+
   line_series = [];
   stacked_series = []
   stacked_chart = create_chart("stacked_chart", "stackedArea100", COLORS, stacked_series, "Stacked Population Segmentation");
+
   let line_groups = _deepClone(COLORS);
   // delete line_groups.healthy;
   line_groups['Healthcare Capacity'] = 'pink';
   line_chart = create_chart("line_chart", "line", line_groups, line_series, "Affected Groups Sizes");
-  
+  line_chart.render()
   population = create_population(config.societies);
+  tree = new kdTree(population, Organism.distance, ["x", "y"]);
+  
+  dps_r = [];
+  bs = []
+  for (let i = 0; i < AGES_BUCKETS.length; i++) {
+    dps_r.push({y: 0, label: AGES_BUCKETS[i]});
+    
+  }
+  ages_chart = new CanvasJS.Chart("ages_chart", {
+    animationEnabled: true,
+    exportEnabled: true,
+    theme: "light2", // "light1", "light2", "dark1", "dark2"
+    title:{
+      text: "Ages Demographics"
+    },
+    axisY: {
+      title: "Amount [units]"
+    },
+    axisX: {
+      title: "Age [years]",
+    },
+    data: [{			
+      name: "death cases",
+      type: "column",
+      color: COLORS['dead'],
+      showInLegend: true, 
+      dataPoints: dps_r,
+    }],
+  });
+  ages_chart.render();
 }
 
 function getRandom(max, min) {
@@ -338,12 +372,22 @@ function getRandom(max, min) {
   return min + Math.random()*(max-min);
 }
 
+
 function create_population(societies) {
-  population = [];
-  Object.values(societies).forEach(society => {
+  let some_population = [];
+  Object.values(societies).forEach(society => {  
+    let eb = [];
+    for (let i = 0; i< AGES_BUCKETS.length; i++) {
+      c_bs_p = 100 * society.AGE_DISTRIBUTION[i];
+      for (let j = 0; j < c_bs_p; j++) {
+        eb.push(AGES_BUCKETS[i]);
+      }
+    }
     for (i = 0; i < society.COUNT; i++) {
       // age = 100*(1-getRandom()**0.5);
-      age = getRandom(100);
+      let b = eb[int(getRandom(eb.length))];
+      let age = getRandom(b, b+BUCKET_SIZE);
+      let x,y;
       if (society.PERIMETER != undefined) {
         x = getRandom(society.PERIMETER.x_left, society.PERIMETER.x_right);
         y = getRandom(society.PERIMETER.y_top, society.PERIMETER.y_bottom);
@@ -351,18 +395,18 @@ function create_population(societies) {
         x = getRandom(0, config.simulation.CANVAS_WIDTH);
         y = getRandom(0, config.simulation.CANVAS_HEIGHT);
       }
-      angle = getRandom(2*Math.PI);
-      vx = getRandom() * society.V_MAX * Math.cos(angle);
-      vy = getRandom() * society.V_MAX * Math.sin(angle);
-      initial_state = "healthy";
+      let angle = getRandom(2*Math.PI);
+      let vx = getRandom() * society.V_MAX * Math.cos(angle);
+      let vy = getRandom() * society.V_MAX * Math.sin(angle);
+      let initial_state = "healthy";
       if (getRandom() < society.PERCENTAGE_INITIAL_SICKNESS) {
         initial_state = "sick";
       }
-      current_organism = new Organism(age, x, y, vx, vy, initial_state, society);
-      population.push(current_organism);
+      let current_organism = new Organism(age, x, y, vx, vy, initial_state, society);
+      some_population.push(current_organism);
     }
   });
-  return population;
+  return some_population;
 }
 
 function create_configuration_controls() {  
@@ -386,13 +430,13 @@ function create_configuration_controls() {
     inputs["society"][society_index] = {};
     society = config.societies[society_index];
     for (const key in society) {
-      if (key=="PERIMETER") {continue};
+      if (key=="PERIMETER" || key=="AGE_DISTRIBUTION") {continue};
       input_id = "society_"+society_index+"_"+key+"_input";
       current_input_label = document.createElement("label");
       current_input_label.htmlFor = input_id;
       current_input_label.innerText = key;
       // current_input_label.width = 100;
-      // current_input_label.height = 50;
+      // current_input_label.height = 50; 
       // current_input_label.style = "font-family:arial;color:white;background-color:" + society_color;
       current_input = document.createElement("input");
       current_input.id = input_id;
@@ -487,7 +531,7 @@ function create_configuration_controls() {
   inputs["world"] = {};
   Object.keys(config.world).forEach(key => {
     if (key=="PERIMETERS") {
-
+      
       return
     };
     current_input_label = document.createElement("label");
@@ -507,6 +551,28 @@ function create_configuration_controls() {
     body.appendChild(current_input);
   });
   document.getElementById('configurations').appendChild(world_div);
+}
+
+function apply_awareness() {
+  config.societies[0].HYGIENE = 3;
+  inputs.society[0].HYGIENE.value = 3;
+  
+  config.societies[0].PERCENTAGE_QUARANTINED = 0.8;
+  inputs.society[0].PERCENTAGE_QUARANTINED.value = 0.8;
+  
+  config.societies[0].V_MAX = 10;
+  inputs.society[0].V_MAX.value = 10;
+}
+
+function apply_lockdown() {
+  config.societies[0].HYGIENE = 2
+  inputs.society[0].HYGIENE.value = 2;
+  
+  config.societies[0].PERCENTAGE_QUARANTINED = 0.8;
+  inputs.society[0].PERCENTAGE_QUARANTINED.value = 0.8;
+  
+  config.societies[0].V_MAX = 0;
+  inputs.society[0].V_MAX.value = 0;
 }
 
 function play_simulation() {
@@ -551,7 +617,7 @@ function create_buttons() {
   pause_button.classList.add("btn-warning");
   pause_button.addEventListener("click", pause_simulation);
   buttons_div.appendChild(pause_button) 
-
+  
   play_button = document.createElement("button");
   play_button.innerHTML = '<span class="mdi mdi-play-circle-outline"></span> Play';
   play_button.classList.add("btn-success");
@@ -564,17 +630,29 @@ function create_buttons() {
   reset_button.addEventListener("click", reset);
   buttons_div.appendChild(reset_button)
   
-  herd_button = document.createElement("button");
-  herd_button.innerText = 'Herd (UK)';
-  herd_button.classList.add("btn-info");
-  herd_button.addEventListener("click", create_special_reset([HERD_SOCIETY]));
-  buttons_div.appendChild(herd_button)
+  awerness_button = document.createElement("button");
+  awerness_button.innerText = 'Awareness';
+  awerness_button.classList.add("btn-info");
+  awerness_button.addEventListener("click", apply_awareness);
+  buttons_div.appendChild(awerness_button)
   
-  social_distancing_button = document.createElement("button");
-  social_distancing_button.innerText = 'Social_distancing (CHINA)';
-  social_distancing_button.classList.add("btn-info");
-  social_distancing_button.addEventListener("click", create_special_reset([SOCIAL_DISTANCING_SOCIETY]));
-  buttons_div.appendChild(social_distancing_button);
+  lockdown_button = document.createElement("button");
+  lockdown_button.innerText = 'Lockdown';
+  lockdown_button.classList.add("btn-warning");
+  lockdown_button.addEventListener("click", apply_lockdown);
+  buttons_div.appendChild(lockdown_button)
+  
+  // herd_button = document.createElement("button");
+  // herd_button.innerText = 'Herd (UK)';
+  // herd_button.classList.add("btn-info");
+  // herd_button.addEventListener("click", create_special_reset([HERD_SOCIETY]));
+  // buttons_div.appendChild(herd_button)
+  
+  // social_distancing_button = document.createElement("button");
+  // social_distancing_button.innerText = 'Social_distancing (CHINA)';
+  // social_distancing_button.classList.add("btn-info");
+  // social_distancing_button.addEventListener("click", create_special_reset([SOCIAL_DISTANCING_SOCIETY]));
+  // buttons_div.appendChild(social_distancing_button);
   
   copy_shareable_link_button = document.createElement("button");
   copy_shareable_link_button.innerHTML = '<span class="mdi mdi-share"></span> Copy shareable link';
@@ -639,6 +717,7 @@ function reset() {
 
 function apply_config_changes() {
   read_inputs_into_cofig(inputs, config);
+  scroll_to_top();
 }
 
 function read_inputs_into_cofig(inputs_list, some_config) {
@@ -655,6 +734,6 @@ function read_inputs_into_cofig(inputs_list, some_config) {
       }
     }
   }
-  let WORLD_PERIMETER = new Perimeter(0, some_config.simulation.CANVAS_WIDTH, 0, some_config.simulation.CANVAS_HEIGHT);
+  let WORLD_PERIMETER = new Perimeter(0, some_config.simulation.CANVAS_WIDTH, 0, some_config.simulation.CANVAS_HEIGHT, function(o){return false});
   some_config.world.PERIMETERS = [WORLD_PERIMETER];
 }

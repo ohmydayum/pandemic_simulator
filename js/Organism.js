@@ -10,9 +10,9 @@ class Organism {
         this.days_immune = 0;
         this.society = society;
     }
-    
-    can_see(other) {
-        return Math.abs(this.get_angle_to(other) - this.get_angle()) < this.society.OPENNING && (this.x-other.x)**2+(this.y-other.y)**2 < this.society.SIGHT**2;
+
+    is_immune() {
+        return this.state == "immune";
     }
     
     move(dt, fx, fy, perimeters) {
@@ -31,26 +31,25 @@ class Organism {
         
         for (const key in Object.keys(perimeters)) {
             const p = perimeters[key];
-            let passed_x_border = ((x_old <= p.x_left && p.x_left <= this.x) || (x_old <= p.x_right && p.x_right <= this.x) || (x_old >= p.x_left && p.x_left >= this.x) || (x_old >= p.x_right && p.x_right >= this.x));
-            let passed_y_border = ((y_old <= p.y_top && p.y_top <= this.y) || (y_old <= p.y_bottom && p.y_bottom <= this.y) || (y_old >= p.y_top && p.y_top >= this.y) || (y_old >= p.y_bottom && p.y_bottom >= this.y));
-            if (passed_x_border && (p.y_top <= this.y && this.y <= p.y_bottom)) {
-                this.vx *= -1;
-                this.x = x_old;
-                return;
-            }
-            
-            if (passed_y_border && (p.x_left <= this.x && this.x <= p.x_right)) {
-                this.vy *= -1;
-                this.y = y_old;
-                return;
-            }
+            if (!p.is_allowed(this)) {
+                let passed_x_border = ((x_old <= p.x_left && p.x_left <= this.x) || (x_old <= p.x_right && p.x_right <= this.x) || (x_old >= p.x_left && p.x_left >= this.x) || (x_old >= p.x_right && p.x_right >= this.x));
+                let passed_y_border = ((y_old <= p.y_top && p.y_top <= this.y) || (y_old <= p.y_bottom && p.y_bottom <= this.y) || (y_old >= p.y_top && p.y_top >= this.y) || (y_old >= p.y_bottom && p.y_bottom >= this.y));
+                if (passed_x_border && (p.y_top <= this.y && this.y <= p.y_bottom)) {
+                    this.vx *= -1;
+                    this.x = x_old;
+                }
+                
+                if (passed_y_border && (p.x_left <= this.x && this.x <= p.x_right)) {
+                    this.vy *= -1;
+                    this.y = y_old;
+                }
 
-            if (passed_x_border && passed_y_border) {
-                this.vy *= -1;
-                this.y = y_old;
-                this.vx *= -1;
-                this.x = x_old;
-                return;
+                if (passed_x_border && passed_y_border) {
+                    this.vy *= -1;
+                    this.y = y_old;
+                    this.vx *= -1;
+                    this.x = x_old;
+                }
             }
         }
     }
@@ -63,7 +62,7 @@ class Organism {
         return Math.atan2(other.y-this.y, other.x-this.x);
     }
     
-    get_touched_by(other, pandemic) {
+    get_touched_by(other, pandemic, dt) {
         if ((other.state == "sick" || other.state == "carrier") && this.state == "healthy") {
             // if (random() < pandemic.PERCENTEAGE_BECOMING_CARRIER) {
             //     this.become_carrier();
@@ -72,7 +71,7 @@ class Organism {
             // } else {
             //     this.become_sick();
             // }
-            if (getRandom() < pandemic.PERCENTAGE_INFECTION) {
+            if (getRandom()/dt < pandemic.PERCENTAGE_INFECTION) {
                 this.become_incubating();
             }
         }
@@ -111,7 +110,7 @@ class Organism {
         }
 
         if (this.state == "carrier") {
-            if (this.days_sick > pandemic.DAYS_OF_SICKNESS) {
+            if (this.days_sick >= pandemic.DAYS_OF_SICKNESS) {
                 if (getRandom() < pandemic.PERCENTAGE_BECOMING_IMMUNE) {
                     this.become_immune();
                 } else {
@@ -124,12 +123,12 @@ class Organism {
         }
 
         if (this.state == "sick") {
-            if (this.days_sick == this.society.DAYS_UNTIL_QUARANTINED && getRandom() < this.society.PERCENTAGE_QUARANTINED) {
+            if (this.society.DAYS_UNTIL_QUARANTINED <= this.days_sick && getRandom()/dt < this.society.PERCENTAGE_QUARANTINED) {
                 this.become_quarantine();
-            } else if (this.days_sick > pandemic.DAYS_OF_SICKNESS) {
-                let p = pandemic.A * Math.exp(pandemic.B * age) + pandemic.C;
-                if (is_healthcare_collapsed) {
-                    p = pandemic.A * Math.exp(pandemic.B * 90) + pandemic.C
+            } else if (this.days_sick >= pandemic.DAYS_OF_SICKNESS) {
+                let p = pandemic.A * Math.exp(pandemic.B * this.age) + pandemic.C;
+                if (!is_healthcare_collapsed) {
+                    p = 0//pandemic.A * Math.exp(pandemic.B * 90) + pandemic.C
                 }
                 
                 if (getRandom(100) < p) {
@@ -146,10 +145,10 @@ class Organism {
         }
 
         if (this.state == "quarantine") {
-            if (this.days_sick > pandemic.DAYS_OF_SICKNESS) {
-                let p = pandemic.A * Math.exp(pandemic.B * age) + pandemic.C;
-                if (is_healthcare_collapsed) {
-                    p = pandemic.A * Math.exp(pandemic.B * 90) + pandemic.C
+            if (this.days_sick >= pandemic.DAYS_OF_SICKNESS) {
+                let p = pandemic.A * Math.exp(pandemic.B * this.age) + pandemic.C;
+                if (!is_healthcare_collapsed) {
+                    p = 0//pandemic.A * Math.exp(pandemic.B * 90) + pandemic.C
                 }
                 
                 if (getRandom(100) < p) {
