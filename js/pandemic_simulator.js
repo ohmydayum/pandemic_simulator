@@ -735,6 +735,6 @@ function read_inputs_into_cofig(inputs_list, some_config) {
       }
     }
   }
-  let WORLD_PERIMETER = new Perimeter(0, some_config.simulation.CANVAS_WIDTH, 0, some_config.simulation.CANVAS_HEIGHT, function(o){return false});
-  some_config.world.PERIMETERS = [WORLD_PERIMETER];
+  // let WORLD_PERIMETER = new Perimeter(0, some_config.simulation.CANVAS_WIDTH, 0, some_config.simulation.CANVAS_HEIGHT, function(o){return false});
+  some_config.world.PERIMETERS = PERIMITERS;
 }
