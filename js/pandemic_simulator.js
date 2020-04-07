@@ -1,4 +1,4 @@
-const _VERSION = "3.9.0";
+const _VERSION = "3.9.1";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
