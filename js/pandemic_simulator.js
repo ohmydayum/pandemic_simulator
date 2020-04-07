@@ -1,19 +1,19 @@
-const _VERSION = "3.9.1";
+const _VERSION = "3.9.3";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
 const AGES_BUCKETS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70];
 const TLV_bs_p =  [3/2, 3/2, 4/2, 4/2, 1.7/2, 1.7/2, 2.5/2, 2.5/2, 4.3/2, 4.3/2, 4.6/2, 4.6/2, 5.5/2, 5.5/2, 2.5/2, 2.5/2];
 const BB_bs_p =  [16.8, 13.1, 11, 10.3, 16.5/2, 16.5/2, 14.5/3, 14.5/3, 14.5/3, 8.2/3, 8.2/3, 8.2/3, 2.7, 2.5, 4.4];
-const INITIAL_SCREEN_WIDTH = 1000//$(window).width()*2/4;
-const INITIAL_SCREEN_HEIGHT = 1000//$(window).width()*2/4;
-const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=0, EPOCH= 0.16, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 1, PAUSED=0)
-const PERIMITERS = [new Perimeter(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT, function(o) {return false})]//, new Perimeter(0, 300, 300, 600, function(o) {return getRandom()<0.01}), new Perimeter(0, 300, 0, 290, function(o) {return o.vy<0})];
+const INITIAL_SCREEN_WIDTH = 300//$(window).width()*2/4;
+const INITIAL_SCREEN_HEIGHT = 600//$(window).width()*2/4;
+const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=1, EPOCH= 0.16, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 1, PAUSED=1)
+const PERIMITERS = [new Perimeter(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT, function(o) {return false}), new Perimeter(0, 300, 300, 600, function(o) {return o.vy<0 && (o.is_immune() || getRandom()<0.01)}), new Perimeter(0, 300, 0, 290, function(o) {return o.vy<0})];
 const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=PERIMITERS);
-const TLV_SOCIETY_CONFIG = new Society(V_MAX= 10, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 8500, PERCENTAGE_INITIAL_SICKNESS= 0.01, PERIMITER= PERIMITERS[0], PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p);
-// const BB_SOCIETY_CONFIG = new Society(V_MAX= 30, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 10, COUNT= 200, PERCENTAGE_INITIAL_SICKNESS= 0.1, PERIMITER=PERIMITERS[1], PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = BB_bs_p);
+const TLV_SOCIETY_CONFIG = new Society(V_MAX= 10, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 0.00, PERIMITER= PERIMITERS[2], PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p);
+const BB_SOCIETY_CONFIG = new Society(V_MAX= 30, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 10, COUNT= 1000, PERCENTAGE_INITIAL_SICKNESS= 0.1, PERIMITER=PERIMITERS[1], PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = BB_bs_p);
 const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.05402627, B=0.07023024, C=0.08371868, DAYS_OF_SICKNESS= 14, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 365, PERCENTAGE_INFECTION=0.5, DAYS_INCUBATION=1)
-const DEFAULT_CONFIG = new Configuration(_VERSION, [TLV_SOCIETY_CONFIG,], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
+const DEFAULT_CONFIG = new Configuration(_VERSION, [TLV_SOCIETY_CONFIG, BB_SOCIETY_CONFIG], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
 
 function _deepClone(obj) {
   if (obj === null || typeof obj !== "object")
@@ -46,6 +46,7 @@ var ind;
 var config = {};
 var inputs = [];
 var counters;
+
 function setup() {
   create_header();
   let canvas = createCanvas(1, 1);
@@ -399,7 +400,7 @@ function create_population(societies) {
       let vx = getRandom() * society.V_MAX * Math.cos(angle);
       let vy = getRandom() * society.V_MAX * Math.sin(angle);
       let initial_state = "healthy";
-      if (getRandom() < society.PERCENTAGE_INITIAL_SICKNESS) {
+      if (i < society.COUNT * society.PERCENTAGE_INITIAL_SICKNESS) {
         initial_state = "sick";
       }
       let current_organism = new Organism(age, x, y, vx, vy, initial_state, society);

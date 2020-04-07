@@ -61,18 +61,18 @@ class Organism {
     get_angle_to(other) {
         return Math.atan2(other.y-this.y, other.x-this.x);
     }
+
+    is_infecting() {
+        return this.state == 'sick' || this.state == 'carrier';
+    }
     
     get_touched_by(other, pandemic, dt) {
-        if ((other.state == "sick" || other.state == "carrier") && this.state == "healthy") {
-            // if (random() < pandemic.PERCENTEAGE_BECOMING_CARRIER) {
-            //     this.become_carrier();
-            // } else if (random() < this.society.PERCENTAGE_QUARANTINED) {
-            //     this.become_quarantine();
-            // } else {
-            //     this.become_sick();
-            // }
+        if (!other.is_infecting()) {return;}
+        
+        if (this.state == "healthy") {
             if (getRandom()/dt < pandemic.PERCENTAGE_INFECTION) {
                 this.become_incubating();
+                this.tracing_time = pandemic.DAYS_UNTIL_QUARANTINED - other.days_sick;
             }
         }
     }
@@ -83,88 +83,85 @@ class Organism {
     }
     
     update_health(pandemic, is_healthcare_collapsed, dt) {
-        if (this.state=="healthy" || this.state == "dead") {
-            return;
-        }
-        
-        if (this.state == "immune") {
-            if (this.days_immune > pandemic.DAYS_IMMUNE_PASS) {
-                this.become_healthy()
-            } else {
-                this.days_immune += dt;
-            }
-            return;
+        if (this.tracing_time > 0) {
+            tracing_time -= dt;
         }
 
-        if (this.state == "incubating") {
-            if (this.days_incubating > pandemic.DAYS_INCUBATION) {
-                if (getRandom() < pandemic.PERCENTEAGE_BECOMING_CARRIER) {
-                    this.become_carrier();
+        switch(this.state) {
+            case "dead":
+                break;
+            case "healthy":
+                break;
+            case "immune":
+                if (this.days_immune > pandemic.DAYS_IMMUNE_PASS) {
+                    this.become_healthy()
                 } else {
-                    this.become_sick();
+                    this.days_immune += dt;
                 }
-            } else {
-                this.days_incubating += dt;
-            }
-            return;
-        }
-
-        if (this.state == "carrier") {
-            if (this.days_sick >= pandemic.DAYS_OF_SICKNESS) {
-                if (getRandom() < pandemic.PERCENTAGE_BECOMING_IMMUNE) {
-                    this.become_immune();
+                break;
+            case "incubating":
+                if (this.days_incubating > pandemic.DAYS_INCUBATION) {
+                    if (getRandom() < pandemic.PERCENTEAGE_BECOMING_CARRIER) {
+                        this.become_carrier();
+                    } else {
+                        this.become_sick();
+                    }
                 } else {
-                    this.become_healthy();
+                    this.days_incubating += dt;
                 }
-            } else {
-                this.days_sick += dt;
-            }
-            return;
-        }
-
-        if (this.state == "sick") {
-            if (this.society.DAYS_UNTIL_QUARANTINED <= this.days_sick && getRandom()/dt < this.society.PERCENTAGE_QUARANTINED) {
-                this.become_quarantine();
-            } else if (this.days_sick >= pandemic.DAYS_OF_SICKNESS) {
-                let p = pandemic.A * Math.exp(pandemic.B * this.age) + pandemic.C;
-                if (!is_healthcare_collapsed) {
-                    p = 0//pandemic.A * Math.exp(pandemic.B * 90) + pandemic.C
-                }
-                
-                if (getRandom(100) < p) {
-                    this.become_dead();
-                } else if (getRandom() < pandemic.PERCENTAGE_BECOMING_IMMUNE) {
-                    this.become_immune();
+                break;
+            case "carrier":
+                if (this.days_sick >= pandemic.DAYS_OF_SICKNESS) {
+                    if (getRandom() < pandemic.PERCENTAGE_BECOMING_IMMUNE) {
+                        this.become_immune();
+                    } else {
+                        this.become_healthy();
+                    }
                 } else {
-                    this.become_healthy();
+                    this.days_sick += dt;
                 }
-            } else {
-                this.days_sick += dt;    
-            }
-            return;
-        }
-
-        if (this.state == "quarantine") {
-            if (this.days_sick >= pandemic.DAYS_OF_SICKNESS) {
-                let p = pandemic.A * Math.exp(pandemic.B * this.age) + pandemic.C;
-                if (!is_healthcare_collapsed) {
-                    p = 0//pandemic.A * Math.exp(pandemic.B * 90) + pandemic.C
-                }
-                
-                if (getRandom(100) < p) {
-                    this.become_dead();
-                } else if (getRandom() < pandemic.PERCENTAGE_BECOMING_IMMUNE) {
-                    this.become_immune();
+                break;
+            case "sick":
+                if (this.society.DAYS_UNTIL_QUARANTINED <= this.days_sick && getRandom()/dt < this.society.PERCENTAGE_QUARANTINED) {
+                    this.become_quarantine();
+                } else if (this.days_sick >= pandemic.DAYS_OF_SICKNESS) {
+                    let p = pandemic.A * Math.exp(pandemic.B * this.age) + pandemic.C;
+                    if (!is_healthcare_collapsed) {
+                        p = 0//pandemic.A * Math.exp(pandemic.B * 90) + pandemic.C
+                    }
+                    
+                    if (getRandom(100) < p) {
+                        this.become_dead();
+                    } else if (getRandom() < pandemic.PERCENTAGE_BECOMING_IMMUNE) {
+                        this.become_immune();
+                    } else {
+                        this.become_healthy();
+                    }
                 } else {
-                    this.become_healthy();
+                    this.days_sick += dt;    
                 }
-            } else {
-                this.days_sick += dt;    
-            }
-            return;
+                break;
+            case "quarantine":
+                if (this.days_sick >= pandemic.DAYS_OF_SICKNESS) {
+                    let p = pandemic.A * Math.exp(pandemic.B * this.age) + pandemic.C;
+                    if (!is_healthcare_collapsed) {
+                        p = 0//pandemic.A * Math.exp(pandemic.B * 90) + pandemic.C
+                    }
+                    
+                    if (getRandom(100) < p) {
+                        this.become_dead();
+                    } else if (getRandom() < pandemic.PERCENTAGE_BECOMING_IMMUNE) {
+                        this.become_immune();
+                    } else {
+                        this.become_healthy();
+                    }
+                } else {
+                    this.days_sick += dt;    
+                }
+                break;
+            default:
+                console.error("unknown organism state", this);
         }
-
-        console.error("unknown organism state", this);
         
     }
     
