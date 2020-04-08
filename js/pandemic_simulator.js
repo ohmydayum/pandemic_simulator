@@ -7,7 +7,7 @@ const TLV_bs_p =  [3/2, 3/2, 4/2, 4/2, 1.7/2, 1.7/2, 2.5/2, 2.5/2, 4.3/2, 4.3/2,
 const BB_bs_p =  [16.8, 13.1, 11, 10.3, 16.5/2, 16.5/2, 14.5/3, 14.5/3, 14.5/3, 8.2/3, 8.2/3, 8.2/3, 2.7, 2.5, 4.4];
 const INITIAL_SCREEN_WIDTH = 1000//$(window).width()*2/4;
 const INITIAL_SCREEN_HEIGHT = 1000//$(window).width()*2/4;
-const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=1, EPOCH= 0.5, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 1, PAUSED=1)
+const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=1, EPOCH= 0.5, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 1, PAUSED=0)
 const PERIMITERS = [new Perimeter(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT, function(o) {return false})]//, new Perimeter(0, 300, 300, 600, function(o) {return o.vy<0 && getRandom()<0.1 && (o.is_immune() || getRandom()<0.5)}), new Perimeter(0, 300, 0, 290, function(o) {return o.vy<0})];
 const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=PERIMITERS);
 const TLV_SOCIETY_CONFIG = new Society(V_MAX= 100, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 8500, PERCENTAGE_INITIAL_SICKNESS= 0.01, PERIMITER= undefined, PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p);
