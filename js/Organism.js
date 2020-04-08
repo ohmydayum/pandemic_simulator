@@ -31,25 +31,20 @@ class Organism {
         
         for (const key in Object.keys(perimeters)) {
             const p = perimeters[key];
-            if (!p.is_allowed(this)) {
-                let passed_x_border = ((x_old <= p.x_left && p.x_left <= this.x) || (x_old <= p.x_right && p.x_right <= this.x) || (x_old >= p.x_left && p.x_left >= this.x) || (x_old >= p.x_right && p.x_right >= this.x));
-                let passed_y_border = ((y_old <= p.y_top && p.y_top <= this.y) || (y_old <= p.y_bottom && p.y_bottom <= this.y) || (y_old >= p.y_top && p.y_top >= this.y) || (y_old >= p.y_bottom && p.y_bottom >= this.y));
-                if (passed_x_border && (p.y_top <= this.y && this.y <= p.y_bottom)) {
-                    this.vx *= -1;
-                    this.x = x_old;
-                }
-                
-                if (passed_y_border && (p.x_left <= this.x && this.x <= p.x_right)) {
-                    this.vy *= -1;
-                    this.y = y_old;
-                }
 
-                if (passed_x_border && passed_y_border) {
-                    this.vy *= -1;
-                    this.y = y_old;
-                    this.vx *= -1;
-                    this.x = x_old;
-                }
+            let is_on_same_side = p.is_inside(this.x, this.y)==p.is_inside(x_old, y_old);
+            if (is_on_same_side) {continue};
+            
+            let is_going_outwards = p.is_inside(x_old, y_old);
+            if (is_going_outwards != p.is_outwards) {continue};
+            
+            let is_allowed = p.youngest_allowed_age <= this.age && this.age <= oldest_allowed_age && p.allowed_states.includes(this.state);
+            is_allowed = is_allowed || getRandom() < p.error_probability;
+            if (!is_allowed) {
+                this.x = x_old;
+                this.y = y_old;
+                this.vx *= -1;
+                this.vy *= -1;
             }
         }
     }
