@@ -1,4 +1,4 @@
-const _VERSION = "3.10.0";
+const _VERSION = "4.0.0";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
@@ -7,14 +7,14 @@ const TLV_bs_p =  [3/2, 3/2, 4/2, 4/2, 1.7/2, 1.7/2, 2.5/2, 2.5/2, 4.3/2, 4.3/2,
 const BB_bs_p =  [16.8, 13.1, 11, 10.3, 16.5/2, 16.5/2, 14.5/3, 14.5/3, 14.5/3, 8.2/3, 8.2/3, 8.2/3, 2.7, 2.5, 4.4];
 const INITIAL_SCREEN_WIDTH = 500//$(window).width()*2/4;
 const INITIAL_SCREEN_HEIGHT = 500//$(window).width()*2/4;
-const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=1, EPOCH= 0.5, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 1, PAUSED=0)
+const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=true, EPOCH= 0.5, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 1, PAUSED=false)
 const PERIMITERS = [
-  new Perimeter(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT, youngest_allowed_age= 999, oldest_allowed_age= 999, is_outwards= true, error_probability=0 , allowed_states=[]),
-  new Perimeter(200, 300, 100, 400, youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= false, error_probability=0.01 , allowed_states=["immune"]),
-  new Perimeter(210, 290, 110, 390, youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= true, error_probability=0.01 , allowed_states=["immune"]),
+  new Perimeter(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT, youngest_allowed_age= 999, oldest_allowed_age= 999, is_outwards= true, error_probability=0 , allowed_states=["X"]),
+  new Perimeter(200, 300, 100, 400, youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= false, error_probability=0.0 , allowed_states=["immune"]),
+  new Perimeter(210, 290, 110, 390, youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= true, error_probability=0.0 , allowed_states=["immune"]),
 ]
 const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=PERIMITERS);
-const TLV_SOCIETY_CONFIG = new Society(V_MAX= 10, MAX_FORCE= 10, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 10, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 0.1, PERIMITER= new Perimeter(0, 10, 0, 20), PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p);
+const TLV_SOCIETY_CONFIG = new Society(V_MAX= 10, MAX_FORCE= 10, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 10, COUNT= 1000, PERCENTAGE_INITIAL_SICKNESS= 0.1, PERIMITER= new Perimeter(0, 10, 0, 20), PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p);
 const BB_SOCIETY_CONFIG = new Society(V_MAX= 5, MAX_FORCE= 10, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 1,  PERIMITER=PERIMITERS[2], PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = BB_bs_p);
 const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.05402627, B=0.07023024, C=0.08371868, DAYS_OF_SICKNESS= 14, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 365, PERCENTAGE_INFECTION=0.5, DAYS_INCUBATION=1)
 const DEFAULT_CONFIG = new Configuration(_VERSION, [TLV_SOCIETY_CONFIG, BB_SOCIETY_CONFIG], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
@@ -52,10 +52,6 @@ var inputs = [];
 var counters;
 
 function setup() {
-  create_header();
-  let canvas = createCanvas(1, 1);
-  canvas.parent('simulation-holder');
-  create_buttons();
   var queryString = window.location.search;
   var urlParams = new URLSearchParams(queryString);
   config = _deepClone(DEFAULT_CONFIG);
@@ -73,6 +69,11 @@ function setup() {
       $("#modal_configuration_deserialization_error").modal('show');
     }
   }
+  create_configuration_controls();
+  create_header();
+  let canvas = createCanvas(1, 1);
+  canvas.parent('simulation-holder');
+  create_buttons();
   
   counters = {}
   Object.keys(COLORS).forEach(k=> {
@@ -150,12 +151,12 @@ function show_canvas() {
 }
 
 function inform_pandemic_over() {
-  pause_simulation();
+  toggle_play();
   $("#modal_pandemic_over").modal('show');
 }
 
 function draw() {
-  if (config.simulation.PAUSED==0) {
+  if (!config.simulation.PAUSED) {
     let cd = update_simulation(population, counters);
     counters = cd[0];
     let dps = cd[1];
@@ -168,14 +169,14 @@ function draw() {
     }
   }
   
-  if (config.simulation.SHOW==0) {
+  if (!config.simulation.SHOW) {
     hide_canvas();
   } else if (ind%config.simulation.SKIPS==0) {
     show_canvas();
-    if (config.simulation.PAUSED==0) {
-      draw_world();
-    } else {
+    if (config.simulation.PAUSED) {
       draw_paused_world();
+    } else {
+      draw_world();
     }
     draw_population(config.population);
   }
@@ -307,11 +308,6 @@ function draw_organism(o) {
   pop();
 }
 
-function restart_with_input_config() {
-  apply_config_changes();
-  run();
-}
-
 function scroll_to_top() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -324,7 +320,6 @@ let ages_chart;
 let dps_r;
 function run() {
   ind = 0;
-  create_configuration_controls();
   resizeCanvas(config.simulation.CANVAS_WIDTH, config.simulation.CANVAS_HEIGHT);
   
   scroll_to_top();
@@ -414,220 +409,89 @@ function create_population(societies) {
   return some_population;
 }
 
+var editor;
+
 function create_configuration_controls() {  
-  document.getElementById("configurations").innerHTML = "";
-  inputs = [];
-  inputs["society"] = {};
-  for (let society_index = 0; society_index < Object.keys(config.societies).length; society_index++) {
-    current_society_div = document.createElement("div");
-    current_society_div.classList.add("panel");
-    current_society_div.classList.add("panel-primary");
-    var society_color = "blue";
-    heading = document.createElement("div")
-    heading.classList.add("panel-heading");
-    // heading.style="font-weight:bold";
-    heading.innerText = "Society #" + (society_index+1) + " (out of " + Object.keys(config.societies).length + ") configuration:";
-    current_society_div.appendChild(heading);
+  const container = document.getElementById("configurations");
+  container.innerHTML = "";
+  
+  const options = {
+    name: "Configuration",
+    mode: "tree",
+    enableSort: false,
+    enableTransform: false,
+    mainMenuBar: false,
     
-    body = document.createElement("div")
-    body.classList.add("panel-body");
-    current_society_div.appendChild(body);
-    inputs["society"][society_index] = {};
-    society = config.societies[society_index];
-    for (const key in society) {
-      if (key=="PERIMETER" || key=="AGE_DISTRIBUTION") {continue};
-      input_id = "society_"+society_index+"_"+key+"_input";
-      current_input_label = document.createElement("label");
-      current_input_label.htmlFor = input_id;
-      current_input_label.innerText = key;
-      // current_input_label.width = 100;
-      // current_input_label.height = 50; 
-      // current_input_label.style = "font-family:arial;color:white;background-color:" + society_color;
-      current_input = document.createElement("input");
-      current_input.id = input_id;
-      current_input.classList.add("form-control");
-      current_input.value = str(society[key]);
-      // current_input.style = "margin-right:1%;width:2%";
-      inputs["society"][society_index][key] = current_input;
-      body.appendChild(current_input_label);
-      body.appendChild(current_input);
-    }
-    document.getElementById('configurations').appendChild(current_society_div)
+    onChange: function() {config = editor.get();}
   }
-  
-  pandemic_div = document.createElement("div");
-  pandemic_div.classList.add("panel");
-  pandemic_div.classList.add("panel-danger");
-  heading = document.createElement("div");
-  heading.classList.add("panel-heading");
-  // heading.style="font-weight:bold";
-  heading.innerText = "Pandemic configuration:";
-  pandemic_div.appendChild(heading);
-  pandemic_color = "red";
-  body = document.createElement("div")
-  body.classList.add("panel-body");
-  pandemic_div.appendChild(body);
-  inputs["pandemic"] = {};
-  Object.keys(config.pandemic).forEach(key => {
-    input_id = "pandemic_"+key+"_input";
-    current_input_label = document.createElement("label");
-    current_input_label.innerText = key;
-    // current_input_label.width = 100;
-    // current_input_label.height = 50;
-    // current_input_label.style = "font-family:arial;color:white;background-color:" + pandemic_color;
-    current_input = document.createElement("input");
-    current_input.classList.add("form-control");
-    current_input.id = input_id;
-    current_input_label.htmlFor = input_id;
-    current_input.value = str(config.pandemic[key]);
-    // current_input.style = "margin-right:1%;width:2%";
-    // current_input.style = "margin-right:1%;width:2%";
-    inputs["pandemic"][key] = current_input;
-    body.appendChild(current_input_label);
-    body.appendChild(current_input);
-  });
-  document.getElementById('configurations').appendChild(pandemic_div);
-  
-  simulation_div = document.createElement("div");
-  simulation_div.classList.add("panel");
-  simulation_div.classList.add("panel-info");
-  heading = document.createElement("div");
-  heading.classList.add("panel-heading");
-  // heading.style="font-weight:bold";
-  heading.innerText = "Simulation configuration:";
-  simulation_div.appendChild(heading);
-  // simulation_color = "green";
-  body = document.createElement("div")
-  body.classList.add("panel-body");
-  simulation_div.appendChild(body);
-  inputs["simulation"] = {};
-  Object.keys(config.simulation).forEach(key => {
-    current_input_label = document.createElement("label");
-    current_input_label.innerText = key;
-    // current_input_label.width = 100;
-    // current_input_label.height = 50;
-    // current_input_label.style = "font-family:arial;color:white;background-color:" + simulation_color;
-    current_input = document.createElement("input");
-    current_input.classList.add("form-control");
-    current_input.id = input_id;
-    current_input_label.htmlFor = input_id;
-    current_input.value = str(config.simulation[key]);
-    // current_input.style = "margin-right:1%;width:2%";
-    // current_input.style = "margin-right:1%;width:2%";
-    inputs["simulation"][key] = current_input;
-    body.appendChild(current_input_label);
-    body.appendChild(current_input);
-  });
-  document.getElementById('configurations').appendChild(simulation_div);
-  
-  
-  world_div = document.createElement("div");
-  world_div.classList.add("panel");
-  world_div.classList.add("panel-warning");
-  heading = document.createElement("div");
-  heading.classList.add("panel-heading");
-  // heading.style="font-weight:bold";
-  heading.innerText = "World configuration:";
-  world_div.appendChild(heading);
-  // world_color = "purple";
-  body = document.createElement("div")
-  body.classList.add("panel-body");
-  world_div.appendChild(body);
-  inputs["world"] = {};
-  Object.keys(config.world).forEach(key => {
-    if (key=="PERIMETERS") {
-      
-      return
-    };
-    current_input_label = document.createElement("label");
-    current_input_label.innerText = key;
-    // current_input_label.width = 100;
-    // current_input_label.height = 50;
-    // current_input_label.style = "font-family:arial;color:white;background-color:" + world_color;
-    current_input = document.createElement("input");
-    current_input.classList.add("form-control");
-    current_input.id = input_id;
-    current_input_label.htmlFor = input_id;
-    current_input.value = str(config.world[key]);
-    // current_input.style = "margin-right:1%;width:2%";
-    // current_input.style = "margin-right:1%;width:2%";
-    inputs["world"][key] = current_input;
-    body.appendChild(current_input_label);
-    body.appendChild(current_input);
-  });
-  document.getElementById('configurations').appendChild(world_div);
+  editor = new JSONEditor(container, options, config)
 }
 
 function apply_awareness() {
   config.societies[0].HYGIENE = 3;
-  inputs.society[0].HYGIENE.value = 3;
   
   config.societies[0].PERCENTAGE_QUARANTINED = 0.8;
-  inputs.society[0].PERCENTAGE_QUARANTINED.value = 0.8;
   
   config.societies[0].V_MAX = 10;
-  inputs.society[0].V_MAX.value = 10;
+  editor.update(config);
 }
 
 function apply_lockdown() {
   config.societies[0].HYGIENE = 2
-  inputs.society[0].HYGIENE.value = 2;
   
   config.societies[0].PERCENTAGE_QUARANTINED = 0.8;
-  inputs.society[0].PERCENTAGE_QUARANTINED.value = 0.8;
   
   config.societies[0].V_MAX = 0;
-  inputs.society[0].V_MAX.value = 0;
+  editor.update(config);
 }
 
-function play_simulation() {
-  config.simulation.PAUSED = 0;
-  inputs.simulation.PAUSED.value = 0;
-}
-
-function pause_simulation() {
-  config.simulation.PAUSED = 1;
-  inputs.simulation.PAUSED.value = 1;
+function toggle_play() {
+  if (config.simulation.PAUSED) {
+    config.simulation.PAUSED = false;
+    play_button.innerHTML = '<span class="mdi mdi-pause"></span> Pause';
+    play_button.classList = ["btn-success"]
+  } else {
+    config.simulation.PAUSED = true;
+    play_button.innerHTML = '<span class="mdi mdi-play-circle-outline"></span> Play';
+    play_button.classList = ["btn-secondary"]
+  }
+  editor.update(config);
 }
 
 function toggle_visualization() {
-  config.simulation.SHOW = 1-config.simulation.SHOW;
-  inputs.simulation.SHOW.value = 1-inputs.simulation.SHOW.value;
+  if (config.simulation.SHOW) {
+    config.simulation.SHOW = false;
+    visualizaion_button.classList = ["btn-secondary"]
+    visualizaion_button.innerHTML = '<span class="mdi mdi-remove-red-eye"></span>Show Visualization';
+  } else {
+    config.simulation.SHOW = true;
+    visualizaion_button.classList = ["btn-success"]
+    visualizaion_button.innerHTML = '<span class="mdi mdi-remove-red-eye"></span>Hide Visualization';
+  }
+  editor.update(config);
 }
 
 function create_buttons() {
   buttons_div = document.getElementById("buttons");
-  
-  
+
+
   visualizaion_button = document.createElement("button");
-  visualizaion_button.innerHTML = '<span class="mdi mdi-remove-red-eye"></span> Visualization';
-  visualizaion_button.classList.add("btn-success");
+  toggle_visualization();
+  toggle_visualization();
   visualizaion_button.addEventListener("click", toggle_visualization);
   buttons_div.appendChild(visualizaion_button) 
-  
-  apply_changes_button = document.createElement("button");
-  apply_changes_button.innerHTML = '<span class="mdi mdi-check"></span> Apply config changes';
-  apply_changes_button.classList.add("btn-success");
-  apply_changes_button.addEventListener("click", apply_config_changes);
-  buttons_div.appendChild(apply_changes_button)
-  
-  run_button = document.createElement("button");
-  run_button.innerHTML = '<span class="mdi mdi-refresh"></span> Restart with current input';
-  run_button.classList.add("btn-primary");
-  run_button.addEventListener("click", restart_with_input_config);
-  buttons_div.appendChild(run_button)
-  
-  pause_button = document.createElement("button");
-  pause_button.innerHTML = '<span class="mdi mdi-pause"></span> Pause';
-  pause_button.classList.add("btn-warning");
-  pause_button.addEventListener("click", pause_simulation);
-  buttons_div.appendChild(pause_button) 
-  
+
   play_button = document.createElement("button");
-  play_button.innerHTML = '<span class="mdi mdi-play-circle-outline"></span> Play';
-  play_button.classList.add("btn-success");
-  play_button.addEventListener("click", play_simulation);
+  toggle_play();
+  toggle_play();
+  play_button.addEventListener("click", toggle_play);
   buttons_div.appendChild(play_button)
+  
+  restart_button = document.createElement("button");
+  restart_button.innerHTML = '<span class="mdi mdi-refresh"></span> Restart';
+  restart_button.classList.add("btn-primary");
+  restart_button.addEventListener("click", run);
+  buttons_div.appendChild(restart_button)
   
   reset_button = document.createElement("button");
   reset_button.innerHTML = '<span class="mdi mdi-cancel"></span> Reset to original';
@@ -646,18 +510,6 @@ function create_buttons() {
   lockdown_button.classList.add("btn-warning");
   lockdown_button.addEventListener("click", apply_lockdown);
   buttons_div.appendChild(lockdown_button)
-  
-  // herd_button = document.createElement("button");
-  // herd_button.innerText = 'Herd (UK)';
-  // herd_button.classList.add("btn-info");
-  // herd_button.addEventListener("click", create_special_reset([HERD_SOCIETY]));
-  // buttons_div.appendChild(herd_button)
-  
-  // social_distancing_button = document.createElement("button");
-  // social_distancing_button.innerText = 'Social_distancing (CHINA)';
-  // social_distancing_button.classList.add("btn-info");
-  // social_distancing_button.addEventListener("click", create_special_reset([SOCIAL_DISTANCING_SOCIETY]));
-  // buttons_div.appendChild(social_distancing_button);
   
   copy_shareable_link_button = document.createElement("button");
   copy_shareable_link_button.innerHTML = '<span class="mdi mdi-share"></span> Copy shareable link';
@@ -718,25 +570,4 @@ function create_special_reset(society_configs) {
 function reset() {
   config = _deepClone(DEFAULT_CONFIG);
   run();
-}
-
-function apply_config_changes() {
-  read_inputs_into_cofig(inputs, config);
-  scroll_to_top();
-}
-
-function read_inputs_into_cofig(inputs_list, some_config) {
-  for (const category in inputs_list) {
-    if (category == "society") {
-      for (const index in inputs_list[category]) {
-        for (const key in inputs_list[category][index]) {
-          some_config.societies[index][key] = float(document.getElementById(inputs_list[category][index][key].id).value);
-        }
-      }
-    } else {
-      for (const key in inputs_list[category]) {
-        some_config[category][key] = float(inputs_list[category][key].value);
-      }
-    }
-  }
 }

@@ -23,6 +23,9 @@
   <script src="./js/Configuration.js"></script>
   <script src="./js/kdtree.js"></script>
   
+  <link href="jsoneditor/jsoneditor.min.css" rel="stylesheet" type="text/css">
+  <script src="jsoneditor/jsoneditor.min.js"></script>
+
   <script src="./js/pandemic_simulator.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -46,7 +49,6 @@
     
   </nav> 
   <div id="buttons" class="btn-group">
-    <button type="button" class="btn-info" data-toggle="collapse" data-target="#configurations"><span class="mdi mdi-mode-edit"></span> Edit configuration</button>
   </div>
   <div id="graph" class="container-fluid">
     <div class="row">
@@ -61,7 +63,7 @@
       </div>
     </div>
   </div>
-  <div id="configurations" class="panel-group collapse in" style="width:80%"></div>
+  <div id="configurations"></div>
   <div id="simulation-holder"></div>
   <div class="modal fade" id="modal_link_copied">
     <div class="modal-dialog">

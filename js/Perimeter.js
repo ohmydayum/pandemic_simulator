@@ -11,11 +11,4 @@ class Perimeter {
         this.error_probability = error_probability;
         this.allowed_states = allowed_states;
     }
-
-    is_inside(x, y) {
-        let is_x_inside = this.x_left <= x && x <= this.x_right; 
-        let is_y_inside = this.y_top <= y && y <= this.y_bottom;
-        
-        return is_x_inside && is_y_inside;
-    }
 }
