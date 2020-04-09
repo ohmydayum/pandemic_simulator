@@ -18,8 +18,8 @@ class Organism {
     
 
     static is_inside(x, y, p) {
-        let is_x_inside = p.x_left <= x && x <= p.x_right; 
-        let is_y_inside = p.y_top <= y && y <= p.y_bottom;
+        let is_x_inside = p.zone.x_left <= x && x <= p.zone.x_right; 
+        let is_y_inside = p.zone.y_top <= y && y <= p.zone.y_bottom;
         
         return is_x_inside && is_y_inside;
     }
@@ -39,15 +39,15 @@ class Organism {
         this.y += dt * this.vy;
         
         for (const key in Object.keys(perimeters)) {
-            const p = perimeters[key];
-            if (p.youngest_allowed_age==666) {debugger}
+            const p = Object.values(perimeters)[key];
+            
             let is_on_same_side = Organism.is_inside(this.x, this.y, p) == Organism.is_inside(x_old, y_old, p);
             if (is_on_same_side) {continue};
             
             let is_going_outwards = Organism.is_inside(x_old, y_old, p);
             if (is_going_outwards != p.is_outwards) {continue};
             
-            let is_allowed = p.youngest_allowed_age <= this.age && this.age <= oldest_allowed_age && Object.values(p.allowed_states).includes(this.state);
+            let is_allowed = p.youngest_allowed_age <= this.age && this.age <= p.oldest_allowed_age && Object.values(p.allowed_states).includes(this.state);
             is_allowed = is_allowed || getRandom() < p.error_probability;
             if (!is_allowed) {
                 this.x = x_old;

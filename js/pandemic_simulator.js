@@ -1,4 +1,4 @@
-const _VERSION = "4.0.0";
+const _VERSION = "4.0.1";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
@@ -9,13 +9,12 @@ const INITIAL_SCREEN_WIDTH = 500//$(window).width()*2/4;
 const INITIAL_SCREEN_HEIGHT = 500//$(window).width()*2/4;
 const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=true, EPOCH= 0.5, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 1, PAUSED=false)
 const PERIMITERS = [
-  new Perimeter(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT, youngest_allowed_age= 999, oldest_allowed_age= 999, is_outwards= true, error_probability=0 , allowed_states=["X"]),
-  new Perimeter(200, 300, 100, 400, youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= false, error_probability=0.0 , allowed_states=["immune"]),
-  new Perimeter(210, 290, 110, 390, youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= true, error_probability=0.0 , allowed_states=["immune"]),
+  new Perimeter(new Rectangle(200, 300, 100, 400), youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= false, error_probability=0.01 , allowed_states=["immune"]),
+  new Perimeter(new Rectangle(210, 290, 110, 390), youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= true, error_probability=0.01 , allowed_states=["healthy", "immune"]),
 ]
 const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=PERIMITERS);
-const TLV_SOCIETY_CONFIG = new Society(V_MAX= 10, MAX_FORCE= 10, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 10, COUNT= 1000, PERCENTAGE_INITIAL_SICKNESS= 0.1, PERIMITER= new Perimeter(0, 10, 0, 20), PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p);
-const BB_SOCIETY_CONFIG = new Society(V_MAX= 5, MAX_FORCE= 10, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 1,  PERIMITER=PERIMITERS[2], PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = BB_bs_p);
+const TLV_SOCIETY_CONFIG = new Society(V_MAX= 10, MAX_FORCE= 10, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 10, COUNT= 1000, PERCENTAGE_INITIAL_SICKNESS= 0.1, INITIAL_ZONE= new Rectangle(200, 300, 50, 80), PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p);
+const BB_SOCIETY_CONFIG = new Society(V_MAX= 5, MAX_FORCE= 10, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 0.3,  INITIAL_ZONE= new Rectangle(210, 290, 110, 390), PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = BB_bs_p);
 const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.05402627, B=0.07023024, C=0.08371868, DAYS_OF_SICKNESS= 14, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 365, PERCENTAGE_INFECTION=0.5, DAYS_INCUBATION=1)
 const DEFAULT_CONFIG = new Configuration(_VERSION, [TLV_SOCIETY_CONFIG, BB_SOCIETY_CONFIG], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
 
@@ -132,7 +131,8 @@ function update_simulation(population, old_counters) {
     let f = getRandom(current_organism.society.MAX_FORCE)
     let fx = f * Math.cos(a);
     let fy = f * Math.sin(a);
-    current_organism.move(config.simulation.EPOCH, fx, fy, config.world.PERIMETERS);
+    let WORLD_BORDER = new Perimeter(new Rectangle(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT), youngest_allowed_age= 999, oldest_allowed_age= 999, is_outwards= true, error_probability=0 , allowed_states=[]);
+    current_organism.move(config.simulation.EPOCH, fx, fy, {...config.world.PERIMETERS, ...{WORLD_BORDER}});
     if (!current_organism.is_dead()) {
       tree.insert(current_organism);
     }
@@ -214,7 +214,7 @@ function draw_world() {
     noFill();
     stroke(0);
     strokeWeight(2);
-    rect(p.x_left, p.y_top, p.x_right-p.x_left, p.y_bottom-p.y_top)
+    rect(p.zone.x_left, p.zone.y_top, p.zone.x_right-p.zone.x_left, p.zone.y_bottom-p.zone.y_top)
   }
 }
 function draw_paused_world() {
@@ -225,7 +225,7 @@ function draw_paused_world() {
     noFill();
     stroke(0);
     strokeWeight(2);
-    rect(p.x_left, p.y_top, p.x_right-p.x_left, p.y_bottom-p.y_top)
+    rect(p.zone.x_left, p.zone.y_top, p.zone.x_right-p.zone.x_left, p.zone.y_bottom-p.zone.y_top)
   }
 }
 
@@ -388,9 +388,9 @@ function create_population(societies) {
       let b = eb[int(getRandom(eb.length))];
       let age = getRandom(b, b+BUCKET_SIZE);
       let x,y;
-      if (society.PERIMETER != undefined) {
-        x = getRandom(society.PERIMETER.x_left, society.PERIMETER.x_right);
-        y = getRandom(society.PERIMETER.y_top, society.PERIMETER.y_bottom);
+      if (society.INITIAL_ZONE != undefined) {
+        x = getRandom(society.INITIAL_ZONE.x_left, society.INITIAL_ZONE.x_right);
+        y = getRandom(society.INITIAL_ZONE.y_top, society.INITIAL_ZONE.y_bottom);
       } else {
         x = getRandom(0, config.simulation.CANVAS_WIDTH);
         y = getRandom(0, config.simulation.CANVAS_HEIGHT);
