@@ -9,6 +9,8 @@ class Organism {
         this.days_sick = 0;
         this.days_immune = 0;
         this.society = society;
+        this.quarantine = false;
+        this.tracing_time = -1;
     }
 
     is_immune() {
@@ -23,11 +25,13 @@ class Organism {
         
         return is_x_inside && is_y_inside;
     }
+
+    is_quarantine() {
+        return this.quarantine;
+    }
     
     move(dt, fx, fy, perimeters) {
-        if (this.state == "quarantine" || this.state == "dead") {
-            return;
-        }
+        if (this.is_dead() || this.is_quarantine()) {return};
         
         this.vx = Math.min(Math.max(-this.society.V_MAX, this.vx + dt * fx), this.society.V_MAX);
         this.vy = Math.min(Math.max(-this.society.V_MAX, this.vy + dt * fy), this.society.V_MAX);
@@ -69,16 +73,20 @@ class Organism {
     is_infecting() {
         return this.state == 'sick' || this.state == 'carrier';
     }
+
+    is_infectable() {
+        return !this.is_quarantine() && this.state == "healthy";
+    }
     
     get_touched_by(other, pandemic, dt) {
-        if (!other.is_infecting()) {return;}
-        
-        if (this.state == "healthy") {
+        if (this.is_infectable() && other.is_infecting()) {
             if (getRandom()/dt < pandemic.PERCENTAGE_INFECTION) {
                 this.become_incubating();
-                this.tracing_time = pandemic.DAYS_UNTIL_QUARANTINED - other.days_sick;
+                this.tracing_time = Math.max(0, this.society.DAYS_UNTIL_QUARANTINED - other.days_sick);
+                return true;
             }
         }
+        return false;
     }
 
     become_incubating() {
@@ -87,9 +95,10 @@ class Organism {
     }
     
     update_health(pandemic, is_healthcare_collapsed, dt) {
-        if (this.tracing_time > 0) {
-            tracing_time -= dt;
+        if (this.society.is_tracing_on && 0 <= this.tracing_time && this.tracing_time <dt) {
+            this.become_quarantine();
         }
+        this.tracing_time -= dt;
 
         switch(this.state) {
             case "dead":
@@ -128,24 +137,7 @@ class Organism {
             case "sick":
                 if (this.society.DAYS_UNTIL_QUARANTINED <= this.days_sick && getRandom()/dt < this.society.PERCENTAGE_QUARANTINED) {
                     this.become_quarantine();
-                } else if (this.days_sick >= pandemic.DAYS_OF_SICKNESS) {
-                    let p = pandemic.A * Math.exp(pandemic.B * this.age) + pandemic.C;
-                    if (!is_healthcare_collapsed) {
-                        p = 0//pandemic.A * Math.exp(pandemic.B * 90) + pandemic.C
-                    }
-                    
-                    if (getRandom(100) < p) {
-                        this.become_dead();
-                    } else if (getRandom() < pandemic.PERCENTAGE_BECOMING_IMMUNE) {
-                        this.become_immune();
-                    } else {
-                        this.become_healthy();
-                    }
-                } else {
-                    this.days_sick += dt;    
                 }
-                break;
-            case "quarantine":
                 if (this.days_sick >= pandemic.DAYS_OF_SICKNESS) {
                     let p = pandemic.A * Math.exp(pandemic.B * this.age) + pandemic.C;
                     if (!is_healthcare_collapsed) {
@@ -168,10 +160,16 @@ class Organism {
         }
         
     }
+
+    become_quarantine() {
+        this.quarantine = true;
+    }
     
     become_immune() {
         this.state = "immune";
         this.days_immune = 0;
+        this.quarantine = false;
+        this.tracing_time = -1;
     }
     
     become_carrier() {
@@ -179,13 +177,11 @@ class Organism {
         this.state = "carrier";
     }
     
-    become_quarantine() {
-        this.state = "quarantine";
-    }
-    
     become_healthy() {
         this.days_sick = 0;
         this.state = "healthy";
+        this.quarantine = false;
+        this.tracing_time = -1;
     }
     
     become_sick() {
@@ -195,6 +191,9 @@ class Organism {
     
     become_dead() {
         this.state = "dead";
+        this.days_sick = 0;
+        this.quarantine = false;
+        this.tracing_time = -1;
     }
     
     is_dead() {

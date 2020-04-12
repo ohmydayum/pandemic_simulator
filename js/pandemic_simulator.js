@@ -1,22 +1,22 @@
-const _VERSION = "4.0.1";
+const _VERSION = "4.2.0";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
 const AGES_BUCKETS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70];
 const TLV_bs_p =  [3/2, 3/2, 4/2, 4/2, 1.7/2, 1.7/2, 2.5/2, 2.5/2, 4.3/2, 4.3/2, 4.6/2, 4.6/2, 5.5/2, 5.5/2, 2.5/2, 2.5/2];
 const BB_bs_p =  [16.8, 13.1, 11, 10.3, 16.5/2, 16.5/2, 14.5/3, 14.5/3, 14.5/3, 8.2/3, 8.2/3, 8.2/3, 2.7, 2.5, 4.4];
-const INITIAL_SCREEN_WIDTH = 500//$(window).width()*2/4;
-const INITIAL_SCREEN_HEIGHT = 500//$(window).width()*2/4;
+const INITIAL_SCREEN_WIDTH = 1000//$(window).width()*2/4;
+const INITIAL_SCREEN_HEIGHT = 1000//$(window).width()*2/4;
 const DEFAULT_SIMULATION_CONFIG = new Simulation(SHOW=true, EPOCH= 0.5, CANVAS_WIDTH=INITIAL_SCREEN_WIDTH, CANVAS_HEIGHT=INITIAL_SCREEN_HEIGHT, SKIPS= 1, PAUSED=false)
 const PERIMITERS = [
-  new Perimeter(new Rectangle(200, 300, 100, 400), youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= false, error_probability=0.01 , allowed_states=["immune"]),
-  new Perimeter(new Rectangle(210, 290, 110, 390), youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= true, error_probability=0.01 , allowed_states=["healthy", "immune"]),
+  new Perimeter(new Rectangle(0, 50, 0, 50), youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= false, error_probability=0.01 , allowed_states=["immune"]),
+  new Perimeter(new Rectangle(0, 40, 0, 40), youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= true, error_probability=0.01 , allowed_states=[]),
 ]
-const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=PERIMITERS);
-const TLV_SOCIETY_CONFIG = new Society(V_MAX= 10, MAX_FORCE= 10, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 10, COUNT= 1000, PERCENTAGE_INITIAL_SICKNESS= 0.1, INITIAL_ZONE= new Rectangle(200, 300, 50, 80), PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p);
-const BB_SOCIETY_CONFIG = new Society(V_MAX= 5, MAX_FORCE= 10, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 100, PERCENTAGE_INITIAL_SICKNESS= 0.3,  INITIAL_ZONE= new Rectangle(210, 290, 110, 390), PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = BB_bs_p);
+const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=[]);
+const TLV_SOCIETY_CONFIG = new Society(V_MAX= 100, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 8500, PERCENTAGE_INITIAL_SICKNESS= 0.001, INITIAL_ZONE= undefined, PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p, percentage_verified=0.15, is_tracing_on = false);
+const BB_SOCIETY_CONFIG = new Society(V_MAX= 100, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 20000, PERCENTAGE_INITIAL_SICKNESS= 0.001,  INITIAL_ZONE= new Rectangle(50, 1000, 50, 1000), PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = BB_bs_p, percentage_verified=0.10, is_tracing_on = false);
 const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.05402627, B=0.07023024, C=0.08371868, DAYS_OF_SICKNESS= 14, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 365, PERCENTAGE_INFECTION=0.5, DAYS_INCUBATION=1)
-const DEFAULT_CONFIG = new Configuration(_VERSION, [TLV_SOCIETY_CONFIG, BB_SOCIETY_CONFIG], DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
+const DEFAULT_CONFIG = new Configuration(_VERSION, {"Tel Aviv": TLV_SOCIETY_CONFIG, }, DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
 
 function _deepClone(obj) {
   if (obj === null || typeof obj !== "object")
@@ -40,8 +40,9 @@ const COLORS = {
   "immune": "blue",
   "carrier": "brown",
   "sick": "red",
-  "quarantine": "black",
   "incubating": "orange",
+  'verified_sick_macro': 'pink',
+  'quarantine': 'black',
 };
 
 var population = [];
@@ -73,15 +74,6 @@ function setup() {
   let canvas = createCanvas(1, 1);
   canvas.parent('simulation-holder');
   create_buttons();
-  
-  counters = {}
-  Object.keys(COLORS).forEach(k=> {
-    counters[k] = 0;
-  });
-  for (i = 0; i < population.length ; i++) {
-    current_organism = population[i];
-    counters[current_organism.state] += 1;
-  }
 
   run();
 }
@@ -107,10 +99,13 @@ function update_simulation(population, old_counters) {
   for (key in COLORS) {
     some_counters[key] = 0;
   }
+  some_counters['verified_sick_macro'] = old_counters['verified_sick_macro'];
+  some_counters['quarantine'] = 0;
 
   // maybe just naive iteration
   for (i = 0; i < population.length ; i++) {
     current_organism = population[i];
+    let is_now_infected = false;
     if (current_organism.is_dead()) {
       let a_b = current_organism.age-(current_organism.age%BUCKET_SIZE);
       if (dps[a_b] == undefined) {dps[a_b]=0};
@@ -120,23 +115,30 @@ function update_simulation(population, old_counters) {
       for (j = 0; j < infection_neighbours.length; j++) {
         other_organism = infection_neighbours[j][0];
         if (!(other_organism.state=="healthy")) {continue};
-        other_organism.get_touched_by(current_organism, config.pandemic, config.simulation.EPOCH);
+        is_now_infected = other_organism.get_touched_by(current_organism, config.pandemic, config.simulation.EPOCH);
       }
     }
     tree.remove(current_organism);
 
-    is_healthcare_collapsed = (old_counters['sick']+old_counters['quarantine'])/population.length > config.world.HEALTHCARE_CAPACITY;
+    is_healthcare_collapsed = (old_counters['sick'])/population.length > config.world.HEALTHCARE_CAPACITY;
     current_organism.update_health(config.pandemic, is_healthcare_collapsed, config.simulation.EPOCH);
     let a = getRandom(2*Math.PI);
     let f = getRandom(current_organism.society.MAX_FORCE)
     let fx = f * Math.cos(a);
     let fy = f * Math.sin(a);
     let WORLD_BORDER = new Perimeter(new Rectangle(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT), youngest_allowed_age= 999, oldest_allowed_age= 999, is_outwards= true, error_probability=0 , allowed_states=[]);
-    current_organism.move(config.simulation.EPOCH, fx, fy, {...config.world.PERIMETERS, ...{WORLD_BORDER}});
+    current_organism.move(config.simulation.EPOCH, fx, fy, {...config.world.PERIMETERS, ...{WORLD_BORDER}}, current_organism.society.V_MAX);
     if (!current_organism.is_dead()) {
       tree.insert(current_organism);
     }
     some_counters[current_organism.state] += 1;
+
+    if (is_now_infected) {
+      some_counters['verified_sick_macro'] += current_organism.society.percentage_verified;
+    }
+    if (current_organism.is_quarantine()) {
+      some_counters['quarantine']++;
+    }
   }
   ind++;
   return [some_counters, dps];
@@ -191,7 +193,6 @@ function draw_population() {
 
 function update_charts(some_counters, t, dps) {
   let line_some_counters = _deepClone(some_counters);
-  line_some_counters['Healthcare Capacity'] = population.length * config.world.HEALTHCARE_CAPACITY;
   update_chart(line_chart, line_some_counters, line_series, t);
   some_counters_percents = {};
   for (let i = 0; i < Object.keys(some_counters).length; i++) {
@@ -277,13 +278,18 @@ function toggleDataSeries(e) {
   }
 }
 
+function format_round(n, d) {
+  return n.toFixed(d);
+}
+
 
 function update_chart(chart, current_some_counters, series, t) {
   for (var i = 0; i < Object.keys(current_some_counters).length; i++) {
-    series[i].legendText = Object.keys(current_some_counters)[i] + " " + Object.values(current_some_counters)[i];
+    let value = float(Object.values(current_some_counters)[i]).toFixed(2);
+    series[i].legendText = Object.keys(current_some_counters)[i] + " " + value;
     series[i].dataPoints.push({
       x: t,
-      y: float(Object.values(current_some_counters)[i])
+      y: float(value),
     });
   }
   chart.render();
@@ -293,8 +299,13 @@ function draw_organism(o) {
   noStroke();
   if (o.is_dead()) {
     fill(100, 100, 100, 50);
-  } else {
+  }else {
     fill(COLORS[current_organism.state]); 
+  }
+
+  if (o.is_quarantine()) {
+    stroke(0);
+    strokeWeight(3);
   }
   //   ellipse(current_organism.x, current_organism.y, config.society.HYGIENE, config.society.HYGIENE); 
   push();
@@ -327,13 +338,22 @@ function run() {
   line_series = [];
   stacked_series = []
   stacked_chart = create_chart("stacked_chart", "stackedArea100", COLORS, stacked_series, "Stacked Population Segmentation");
+  stacked_chart.render()
 
   let line_groups = _deepClone(COLORS);
-  // delete line_groups.healthy;
-  line_groups['Healthcare Capacity'] = 'pink';
   line_chart = create_chart("line_chart", "line", line_groups, line_series, "Affected Groups Sizes");
   line_chart.render()
   population = create_population(config.societies);
+
+  counters = {}
+  Object.keys(COLORS).forEach(k=> {
+    counters[k] = 0;
+  });
+  for (i = 0; i < population.length ; i++) {
+    current_organism = population[i];
+    counters[current_organism.state] += 1;
+  }
+
   tree = new kdTree(population, Organism.distance, ["x", "y"]);
   
   dps_r = [];
@@ -421,27 +441,43 @@ function create_configuration_controls() {
     enableSort: false,
     enableTransform: false,
     mainMenuBar: false,
-    
-    onChange: function() {config = editor.get();}
+    onChange: apply_config_changes,
   }
   editor = new JSONEditor(container, options, config)
 }
 
+function deep_set(obj1, obj2) {
+  var props1 = Object.getOwnPropertyDescriptors(obj1);
+  var props2 = Object.getOwnPropertyDescriptors(obj2);
+  for (var prop in {...props1, ...props2}) {
+    if (obj2[prop]==undefined) {
+      delete obj1[prop];  
+    } else if (obj1[prop]==undefined) {
+      obj1[prop] = obj2[prop];
+    } else if (typeof obj1[prop] !== "object") {
+      obj1[prop] = obj2[prop]
+    }else {
+      deep_set(obj1[prop], obj2[prop])
+    }
+  }
+}
+
+function apply_config_changes() {
+  deep_set(config, editor.get());
+}
+
 function apply_awareness() {
-  config.societies[0].HYGIENE = 3;
-  
-  config.societies[0].PERCENTAGE_QUARANTINED = 0.8;
-  
-  config.societies[0].V_MAX = 10;
+  config.societies['Tel Aviv'].HYGIENE = 3;
+  config.societies['Tel Aviv'].PERCENTAGE_QUARANTINED = 0.8;
+  config.societies['Tel Aviv'].V_MAX = 10; 
+  config.societies['Tel Aviv'].is_tracing_on = true;
   editor.update(config);
 }
 
 function apply_lockdown() {
-  config.societies[0].HYGIENE = 2
-  
-  config.societies[0].PERCENTAGE_QUARANTINED = 0.8;
-  
-  config.societies[0].V_MAX = 0;
+  config.societies['Tel Aviv'].HYGIENE = 2
+  config.societies['Tel Aviv'].PERCENTAGE_QUARANTINED = 0.8;
+  config.societies['Tel Aviv'].V_MAX = 0;
   editor.update(config);
 }
 
@@ -552,22 +588,9 @@ function copyToClipboard(str) {
   }
 }
 
-
-function create_special_reset(society_configs) {
-  function special_reset() {
-    config = _deepClone(DEFAULT_CONFIG);
-    for (var i = 0 ; i < Object.keys(society_configs).length ; i++) {
-      for (var key in society_configs[0]) {
-        config.societies[i][key] = society_configs[i][key];
-      }
-    }
-    config.societies.splice(Object.keys(society_configs).length);
-    run();
-  }
-  return special_reset;
-}
-
 function reset() {
   config = _deepClone(DEFAULT_CONFIG);
+  toggle_play();
+  toggle_play();
   run();
 }
