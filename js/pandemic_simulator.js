@@ -1,9 +1,10 @@
-const _VERSION = "4.2.2";
+const _VERSION = "4.3.0";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
 const AGES_BUCKETS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70];
-const TLV_bs_p =  [3/2, 3/2, 4/2, 4/2, 1.7/2, 1.7/2, 2.5/2, 2.5/2, 4.3/2, 4.3/2, 4.6/2, 4.6/2, 5.5/2, 5.5/2, 2.5/2, 2.5/2];
+// const TLV_bs_p =  [3/2, 3/2, 4/2, 4/2, 1.7/2, 1.7/2, 2.5/2, 2.5/2, 4.3/2, 4.3/2, 4.6/2, 4.6/2, 5.5/2, 5.5/2, 2.5/2, 2.5/2];
+const TLV_bs_p =  [34.484, 27.251, 21.794, 19.308, 22.544, 40.308, 51.815, 43.866, 33.044, 27.171, 21.017, 19.899, 20.175, 35, 35];
 const BB_bs_p =  [16.8, 13.1, 11, 10.3, 16.5/2, 16.5/2, 14.5/3, 14.5/3, 14.5/3, 8.2/3, 8.2/3, 8.2/3, 2.7, 2.5, 4.4];
 const INITIAL_SCREEN_WIDTH = 1000//$(window).width()*2/4;
 const INITIAL_SCREEN_HEIGHT = 1000//$(window).width()*2/4;
@@ -94,23 +95,27 @@ function create_header() {
 
 function update_simulation(population, old_counters) {
   let dps = {};
-  
   let some_counters = {};
+  
   for (key in COLORS) {
     some_counters[key] = 0;
+    dps[key] = {};
   }
   some_counters['verified_sick_macro'] = old_counters['verified_sick_macro'];
   some_counters['quarantine'] = 0;
+  dps['quarantine'] = {};
+  delete dps['verified_sick_macro'];
 
   // maybe just naive iteration
   for (i = 0; i < population.length ; i++) {
     current_organism = population[i];
     let is_now_infected = false;
-    if (current_organism.is_dead()) {
-      let a_b = current_organism.age-(current_organism.age%BUCKET_SIZE);
-      if (dps[a_b] == undefined) {dps[a_b]=0};
-      dps[a_b]++;
-    } else if (current_organism.state=="sick" || current_organism.state=="carrier") {
+    let a_b = current_organism.age-(current_organism.age%BUCKET_SIZE);
+    if (dps[current_organism.state][a_b] == undefined) {dps[current_organism.state][a_b]=0};
+    dps[current_organism.state][a_b]++;
+    if (dps['quarantine'][a_b] == undefined) {dps['quarantine'][a_b]=0};
+    if (current_organism.is_quarantine()) {dps['quarantine'][a_b]++;};
+    if (current_organism.state=="sick" || current_organism.state=="carrier") {
       infection_neighbours = tree.nearest(current_organism, 20, current_organism.society.HYGIENE);
       for (j = 0; j < infection_neighbours.length; j++) {
         other_organism = infection_neighbours[j][0];
@@ -202,9 +207,18 @@ function update_charts(some_counters, t, dps) {
   }
   update_chart(stacked_chart, some_counters_percents, stacked_series, t);
   
-  for (let i = 0; i < Object.keys(dps).length; i++) {
-    const element = Object.values(dps)[i];
-    ages_chart.data[0].dataPoints[Object.keys(dps)[i]/BUCKET_SIZE].y = Object.values(dps)[i]; 
+  try {
+    for (let group = 0; group < Object.keys(dps).length; group++) {
+      let group_ages = Object.values(dps)[group];
+      for (let bucket_index = 0; bucket_index < Object.keys(group_ages).length; bucket_index++) {
+        var bucket = int(Object.keys(group_ages)[bucket_index]);
+        var population_in_bucket = group_ages[bucket_index*BUCKET_SIZE];
+        if (population_in_bucket == undefined) {population_in_bucket = 0};
+        ages_chart.data[group].dataPoints[bucket/BUCKET_SIZE].y = population_in_bucket; 
+      }
+    }
+  } catch (error) {
+    console.log(error)
   }
   ages_chart.render();
 }
@@ -358,15 +372,39 @@ function run() {
 
   tree = new kdTree(population, Organism.distance, ["x", "y"]);
   
-  dps_r = [];
-  bs = []
-  for (let i = 0; i < AGES_BUCKETS.length; i++) {
-    dps_r.push({y: 0, label: AGES_BUCKETS[i]});
-    
+  
+  let ages_series = []
+  for (let i = 0; i < Object.keys(COLORS).length; i++) {
+    const group = Object.keys(COLORS)[i];
+    if (group == "verified_sick_macro") continue;
+    let dps_r = [];
+    for (let j = 0; j < AGES_BUCKETS.length; j++) {
+      dps_r.push({y: 0, label: AGES_BUCKETS[j]});
+      
+    }
+    ages_series.push({			
+      name: group,
+      type: "column",
+      color: COLORS[group],
+      showInLegend: true, 
+      dataPoints: dps_r,
+    });
   }
   ages_chart = new CanvasJS.Chart("ages_chart", {
-    animationEnabled: true,
     exportEnabled: true,
+    animationEnabled: true,
+    zoomEnabled: true,
+    toolTip: {
+      shared: true
+    },
+    legend: {
+      cursor:"pointer",
+      verticalAlign: "top",
+      fontSize: 15,
+      fontColor: "dimGrey",
+      usePointStyle: true,
+      itemclick : toggleDataSeries,
+    },
     theme: "light2", // "light1", "light2", "dark1", "dark2"
     title:{
       text: "Ages Demographics"
@@ -377,13 +415,7 @@ function run() {
     axisX: {
       title: "Age [years]",
     },
-    data: [{			
-      name: "death cases",
-      type: "column",
-      color: COLORS['dead'],
-      showInLegend: true, 
-      dataPoints: dps_r,
-    }],
+    data: ages_series,
   });
   ages_chart.render();
 }
