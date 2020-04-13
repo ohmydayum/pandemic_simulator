@@ -1,4 +1,4 @@
-const _VERSION = "4.3.0";
+const _VERSION = "4.4.0";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
@@ -201,6 +201,13 @@ function draw_population() {
 function update_charts(some_counters, t, dps) {
   let line_some_counters = _deepClone(some_counters);
   update_chart(line_chart, line_some_counters, line_series, t);
+
+  let newspaper_some_counters = {};
+  ['verified_sick_macro', 'dead', 'quarantine'].forEach(key => {
+    newspaper_some_counters[key] = some_counters[key];
+  });
+  update_chart(newspaper_chart, newspaper_some_counters, newspaper_series, t);
+
   some_counters_percents = {};
   for (let i = 0; i < Object.keys(some_counters).length; i++) {
     some_counters_percents[Object.keys(some_counters)[i]] = (Object.values(some_counters)[i]/Object.keys(population).length*100).toFixed(2);
@@ -342,6 +349,7 @@ function scroll_to_top() {
 var line_chart;
 var stacked_chart;
 var line_series;
+var newspaper_series;
 var stacked_series;
 let ages_chart;
 let dps_r;
@@ -351,15 +359,25 @@ function run() {
   
   scroll_to_top();
 
-  line_series = [];
+  
   stacked_series = []
   stacked_chart = create_chart("stacked_chart", "stackedArea100", COLORS, stacked_series, "Stacked Population Segmentation");
   stacked_chart.render()
-
+  
   let line_groups = _deepClone(COLORS);
+  line_series = [];
   line_chart = create_chart("line_chart", "line", line_groups, line_series, "Affected Groups Sizes");
   line_chart.render()
   population = create_population(config.societies);
+  
+  
+  let newspaper_groups = {};
+  ['verified_sick_macro', 'dead', 'quarantine'].forEach(key => {
+    newspaper_groups[key] = COLORS[key];
+  });
+  newspaper_series = [];
+  newspaper_chart = create_chart("newspaper_chart", "line", newspaper_groups, newspaper_series, "Newspaper Knowledge");
+  newspaper_chart.render()
 
   counters = {}
   Object.keys(COLORS).forEach(k=> {
