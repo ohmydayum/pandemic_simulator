@@ -1,4 +1,4 @@
-const _VERSION = "4.2.1";
+const _VERSION = "4.2.2";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
@@ -12,7 +12,7 @@ const PERIMITERS = [
   new Perimeter(new Rectangle(0, 50, 0, 50), youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= false, error_probability=0.01 , allowed_states=["immune"]),
   new Perimeter(new Rectangle(0, 40, 0, 40), youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= true, error_probability=0.01 , allowed_states=[]),
 ]
-const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=[]);
+const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=PERIMITERS);
 const TLV_SOCIETY_CONFIG = new Society(V_MAX= 10, MAX_FORCE= 10, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 8500, PERCENTAGE_INITIAL_SICKNESS= 0.001, INITIAL_ZONE= undefined, PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p, percentage_verified=0.15, is_tracing_on = true, percentage_traced=0.8);
 const BB_SOCIETY_CONFIG = new Society(V_MAX= 100, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 20000, PERCENTAGE_INITIAL_SICKNESS= 0.001,  INITIAL_ZONE= new Rectangle(50, 1000, 50, 1000), PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = BB_bs_p, percentage_verified=0.10, is_tracing_on = false, percentage_traced=0.6);
 const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.05402627, B=0.07023024, C=0.08371868, DAYS_OF_SICKNESS= 30, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 365, PERCENTAGE_INFECTION=0.5, DAYS_INCUBATION=1)
