@@ -79,14 +79,15 @@ class Organism {
     }
     
     get_touched_by(other, pandemic, dt) {
-        if (this.is_infectable() && other.is_infecting()) {
-            if (getRandom()/dt < pandemic.PERCENTAGE_INFECTION) {
-                this.become_incubating();
-                other.infected.push(this);
-                return true;
-            }
+        if (!other.is_infecting()) {
+            return false;
         }
-        return false;
+     
+        other.infected.push(this);
+        if (this.is_infectable() && getRandom()/dt < pandemic.PERCENTAGE_INFECTION) {
+            this.become_incubating();
+            return true;
+        }
     }
 
     become_incubating() {
@@ -159,7 +160,7 @@ class Organism {
     become_quarantine() {
         this.quarantine = true;
         this.infected.forEach(o=>{
-            if (o.society.is_tracing_on && getRandom() < o.society.percentage_traced) {
+            if (o.society.is_tracing_on && ["sick", "carrier"].includes(o.state) && getRandom() < o.society.percentage_traced) {
                 o.become_quarantine();
             }
         });

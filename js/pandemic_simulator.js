@@ -1,4 +1,4 @@
-const _VERSION = "4.4.0";
+const _VERSION = "4.5.0";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
@@ -44,6 +44,8 @@ const COLORS = {
   "incubating": "orange",
   'verified_sick_macro': 'pink',
   'quarantine': 'black',
+  'verified_new_sick_macro': 'magenta',
+  'verified_active_sick_macro': 'gold',
 };
 
 var population = [];
@@ -102,11 +104,12 @@ function update_simulation(population, old_counters) {
     dps[key] = {};
   }
   some_counters['verified_sick_macro'] = old_counters['verified_sick_macro'];
-  some_counters['quarantine'] = 0;
   dps['quarantine'] = {};
   delete dps['verified_sick_macro'];
 
   // maybe just naive iteration
+  // tree = new kdTree(population, Organism.distance, ["x", "y"]);
+  // console.log(tree.balanceFactor());
   for (i = 0; i < population.length ; i++) {
     current_organism = population[i];
     let is_now_infected = false;
@@ -125,6 +128,7 @@ function update_simulation(population, old_counters) {
     }
     
     is_healthcare_collapsed = (old_counters['sick'])/population.length > config.world.HEALTHCARE_CAPACITY;
+    let old_status = current_organism.state;
     current_organism.update_health(config.pandemic, is_healthcare_collapsed, config.simulation.EPOCH);
     some_counters[current_organism.state] += 1;
     
@@ -140,8 +144,12 @@ function update_simulation(population, old_counters) {
       tree.insert(current_organism);
     }
 
-    if (is_now_infected) {
-      some_counters['verified_sick_macro'] += current_organism.society.percentage_verified;
+    if (current_organism.state == "sick" || current_organism.state == "carrier") {
+      some_counters['verified_active_sick_macro'] += current_organism.society.percentage_verified;
+      if (old_status == "incubating") {
+        some_counters['verified_sick_macro'] += current_organism.society.percentage_verified;
+        some_counters['verified_new_sick_macro'] += current_organism.society.percentage_verified;
+      }
     }
     if (current_organism.is_quarantine()) {
       some_counters['quarantine']++;
@@ -200,10 +208,13 @@ function draw_population() {
 
 function update_charts(some_counters, t, dps) {
   let line_some_counters = _deepClone(some_counters);
+  delete line_some_counters['verified_active_sick_macro'];
+  delete line_some_counters['verified_new_sick_macro'];
+  delete line_some_counters['verified_sick_macro'];
   update_chart(line_chart, line_some_counters, line_series, t);
 
   let newspaper_some_counters = {};
-  ['verified_sick_macro', 'dead', 'quarantine'].forEach(key => {
+  ['verified_sick_macro', 'dead', 'quarantine', 'verified_new_sick_macro' || group == 'verified_active_sick_macro', 'verified_active_sick_macro', 'verified_active_sick_macro'].forEach(key => {
     newspaper_some_counters[key] = some_counters[key];
   });
   update_chart(newspaper_chart, newspaper_some_counters, newspaper_series, t);
@@ -359,12 +370,20 @@ function run() {
   
   scroll_to_top();
 
+  counters = {}
+  Object.keys(COLORS).forEach(k=> {
+    counters[k] = 0;
+  });
   
   stacked_series = []
   stacked_chart = create_chart("stacked_chart", "stackedArea100", COLORS, stacked_series, "Stacked Population Segmentation");
   stacked_chart.render()
   
   let line_groups = _deepClone(COLORS);
+  
+  delete line_groups['verified_active_sick_macro'];
+  delete line_groups['verified_new_sick_macro'];
+  delete line_groups['verified_sick_macro'];
   line_series = [];
   line_chart = create_chart("line_chart", "line", line_groups, line_series, "Affected Groups Sizes");
   line_chart.render()
@@ -372,19 +391,15 @@ function run() {
   
   
   let newspaper_groups = {};
-  ['verified_sick_macro', 'dead', 'quarantine'].forEach(key => {
+  ['verified_sick_macro', 'dead', 'quarantine', 'verified_new_sick_macro' || group == 'verified_active_sick_macro', 'verified_active_sick_macro'].forEach(key => {
     newspaper_groups[key] = COLORS[key];
   });
   newspaper_series = [];
   newspaper_chart = create_chart("newspaper_chart", "line", newspaper_groups, newspaper_series, "Newspaper Knowledge");
   newspaper_chart.render()
 
-  counters = {}
-  Object.keys(COLORS).forEach(k=> {
-    counters[k] = 0;
-  });
   for (i = 0; i < population.length ; i++) {
-    current_organism = population[i];
+    current_organism = population[i]; 
     counters[current_organism.state] += 1;
   }
 
@@ -394,7 +409,7 @@ function run() {
   let ages_series = []
   for (let i = 0; i < Object.keys(COLORS).length; i++) {
     const group = Object.keys(COLORS)[i];
-    if (group == "verified_sick_macro") continue;
+    if (group == "verified_sick_macro" || group == 'verified_new_sick_macro' || group == 'verified_active_sick_macro') continue;
     let dps_r = [];
     for (let j = 0; j < AGES_BUCKETS.length; j++) {
       dps_r.push({y: 0, label: AGES_BUCKETS[j]});
@@ -473,6 +488,7 @@ function create_population(societies) {
       let initial_state = "healthy";
       if (i < society.COUNT * society.PERCENTAGE_INITIAL_SICKNESS) {
         initial_state = "sick";
+        counters['verified_sick_macro']++;
       }
       let current_organism = new Organism(age, x, y, vx, vy, initial_state, society);
       some_population.push(current_organism);
