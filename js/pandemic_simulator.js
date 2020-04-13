@@ -1,4 +1,4 @@
-const _VERSION = "4.2.0";
+const _VERSION = "4.2.1";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
@@ -13,9 +13,9 @@ const PERIMITERS = [
   new Perimeter(new Rectangle(0, 40, 0, 40), youngest_allowed_age= 0, oldest_allowed_age= 999, is_outwards= true, error_probability=0.01 , allowed_states=[]),
 ]
 const DEFAULT_WORLD_CONFIG = new World(HEALTHCARE_CAPACITY= 0.002, PERIMETERS=[]);
-const TLV_SOCIETY_CONFIG = new Society(V_MAX= 100, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 8500, PERCENTAGE_INITIAL_SICKNESS= 0.001, INITIAL_ZONE= undefined, PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p, percentage_verified=0.15, is_tracing_on = false);
-const BB_SOCIETY_CONFIG = new Society(V_MAX= 100, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 20000, PERCENTAGE_INITIAL_SICKNESS= 0.001,  INITIAL_ZONE= new Rectangle(50, 1000, 50, 1000), PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = BB_bs_p, percentage_verified=0.10, is_tracing_on = false);
-const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.05402627, B=0.07023024, C=0.08371868, DAYS_OF_SICKNESS= 14, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 365, PERCENTAGE_INFECTION=0.5, DAYS_INCUBATION=1)
+const TLV_SOCIETY_CONFIG = new Society(V_MAX= 10, MAX_FORCE= 10, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 8500, PERCENTAGE_INITIAL_SICKNESS= 0.001, INITIAL_ZONE= undefined, PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = TLV_bs_p, percentage_verified=0.15, is_tracing_on = true, percentage_traced=0.8);
+const BB_SOCIETY_CONFIG = new Society(V_MAX= 100, MAX_FORCE= 100, DAYS_UNTIL_QUARANTINED= 2, HYGIENE= 5, COUNT= 20000, PERCENTAGE_INITIAL_SICKNESS= 0.001,  INITIAL_ZONE= new Rectangle(50, 1000, 50, 1000), PERCENTAGE_QUARANTINED=0, AGE_DISTRIBUTION = BB_bs_p, percentage_verified=0.10, is_tracing_on = false, percentage_traced=0.6);
+const DEFAULT_PANDEMIC_CONFIG = new Pandemic(A= 0.05402627, B=0.07023024, C=0.08371868, DAYS_OF_SICKNESS= 30, PERCENTEAGE_BECOMING_CARRIER= 0.5, PERCENTAGE_BECOMING_IMMUNE= 0.8, DAYS_IMMUNE_PASS= 365, PERCENTAGE_INFECTION=0.5, DAYS_INCUBATION=1)
 const DEFAULT_CONFIG = new Configuration(_VERSION, {"Tel Aviv": TLV_SOCIETY_CONFIG, }, DEFAULT_WORLD_CONFIG, DEFAULT_PANDEMIC_CONFIG, DEFAULT_SIMULATION_CONFIG);
 
 function _deepClone(obj) {
@@ -118,20 +118,22 @@ function update_simulation(population, old_counters) {
         is_now_infected = other_organism.get_touched_by(current_organism, config.pandemic, config.simulation.EPOCH);
       }
     }
-    tree.remove(current_organism);
-
+    
     is_healthcare_collapsed = (old_counters['sick'])/population.length > config.world.HEALTHCARE_CAPACITY;
     current_organism.update_health(config.pandemic, is_healthcare_collapsed, config.simulation.EPOCH);
+    some_counters[current_organism.state] += 1;
+    
     let a = getRandom(2*Math.PI);
     let f = getRandom(current_organism.society.MAX_FORCE)
     let fx = f * Math.cos(a);
     let fy = f * Math.sin(a);
     let WORLD_BORDER = new Perimeter(new Rectangle(0, INITIAL_SCREEN_WIDTH, 0, INITIAL_SCREEN_HEIGHT), youngest_allowed_age= 999, oldest_allowed_age= 999, is_outwards= true, error_probability=0 , allowed_states=[]);
     current_organism.move(config.simulation.EPOCH, fx, fy, {...config.world.PERIMETERS, ...{WORLD_BORDER}}, current_organism.society.V_MAX);
-    if (!current_organism.is_dead()) {
+    
+    tree.remove(current_organism);
+    if (current_organism.is_healthy()) {
       tree.insert(current_organism);
     }
-    some_counters[current_organism.state] += 1;
 
     if (is_now_infected) {
       some_counters['verified_sick_macro'] += current_organism.society.percentage_verified;

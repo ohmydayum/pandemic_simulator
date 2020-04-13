@@ -10,7 +10,7 @@ class Organism {
         this.days_immune = 0;
         this.society = society;
         this.quarantine = false;
-        this.tracing_time = -1;
+        this.infected = [];
     }
 
     is_immune() {
@@ -71,7 +71,7 @@ class Organism {
     }
 
     is_infecting() {
-        return this.state == 'sick' || this.state == 'carrier';
+        return !this.quarantine && (this.state == 'sick' || this.state == 'carrier');
     }
 
     is_infectable() {
@@ -82,7 +82,7 @@ class Organism {
         if (this.is_infectable() && other.is_infecting()) {
             if (getRandom()/dt < pandemic.PERCENTAGE_INFECTION) {
                 this.become_incubating();
-                this.tracing_time = Math.max(0, this.society.DAYS_UNTIL_QUARANTINED - other.days_sick);
+                other.infected.push(this);
                 return true;
             }
         }
@@ -92,14 +92,9 @@ class Organism {
     become_incubating() {
         this.days_incubating = 0;
         this.state = "incubating";
-    }
+    }   
     
     update_health(pandemic, is_healthcare_collapsed, dt) {
-        if (this.society.is_tracing_on && 0 <= this.tracing_time && this.tracing_time <dt) {
-            this.become_quarantine();
-        }
-        this.tracing_time -= dt;
-
         switch(this.state) {
             case "dead":
                 break;
@@ -160,16 +155,21 @@ class Organism {
         }
         
     }
-
+    
     become_quarantine() {
         this.quarantine = true;
+        this.infected.forEach(o=>{
+            if (o.society.is_tracing_on && getRandom() < o.society.percentage_traced) {
+                o.become_quarantine();
+            }
+        });
+        this.infected = [];
     }
     
     become_immune() {
         this.state = "immune";
         this.days_immune = 0;
         this.quarantine = false;
-        this.tracing_time = -1;
     }
     
     become_carrier() {
@@ -181,7 +181,6 @@ class Organism {
         this.days_sick = 0;
         this.state = "healthy";
         this.quarantine = false;
-        this.tracing_time = -1;
     }
     
     become_sick() {
@@ -193,11 +192,15 @@ class Organism {
         this.state = "dead";
         this.days_sick = 0;
         this.quarantine = false;
-        this.tracing_time = -1;
     }
     
     is_dead() {
         return this.state == "dead";
+    }
+    
+    
+    is_healthy() {
+        return this.state == "healthy";
     }
     
     static distance(o1, o2) {
