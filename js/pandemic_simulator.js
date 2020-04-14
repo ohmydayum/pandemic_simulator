@@ -1,4 +1,4 @@
-const _VERSION = "4.5.1";
+const _VERSION = "4.5.2";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
@@ -546,6 +546,7 @@ function apply_lockdown() {
   config.societies['Tel Aviv'].HYGIENE = 2
   config.societies['Tel Aviv'].PERCENTAGE_QUARANTINED = 0.8;
   config.societies['Tel Aviv'].V_MAX = 0;
+  config.societies['Tel Aviv'].is_tracing_on = true;
   editor.update(config);
 }
 
