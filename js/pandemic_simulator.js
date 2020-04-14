@@ -1,4 +1,4 @@
-const _VERSION = "4.5.0";
+const _VERSION = "4.5.1";
 const _EMAIL = "dor.israeli+pandemic_simulator@gmail.com";
 
 const BUCKET_SIZE = 5;
@@ -488,7 +488,7 @@ function create_population(societies) {
       let initial_state = "healthy";
       if (i < society.COUNT * society.PERCENTAGE_INITIAL_SICKNESS) {
         initial_state = "sick";
-        counters['verified_sick_macro']++;
+        counters['verified_sick_macro'] += society.percentage_verified;
       }
       let current_organism = new Organism(age, x, y, vx, vy, initial_state, society);
       some_population.push(current_organism);
